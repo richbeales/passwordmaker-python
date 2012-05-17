@@ -1,0 +1,33 @@
+- When I try to maximize the PasswordMaker Python window, it contents
+stay at fixed width/length. They should maximize (or change size)
+along with the window.
+- A paste button associated with the 'URL' input field. This way it
+will make it much easier to paste a URL
+- Two distinct fields 'URL input' and 'URL', analogous to [2]. As in
+[2], 'URL input' would take a honorificly long url such as [1] and
+strip it to 'passwordmaker.org' in 'URL'.
+- A drop-down combo with supported algorithms. Right now 'md5' is
+input by default, but the user may not know the available options.
+- A spinner for the 'Length' field
+- Another dropdown combo for 'Characters', containing the 6 options in [2].
+- An auto-generate password mechanism.
+- Accelerators for the buttons: 'alt+g' for 'Generate', etc. Moreover,
+bind 'enter' to 'Generate.
+- Better labelled 'Load' and 'Save': what exactly is saved: the master
+password, the profile, etc.? Change label of 'Master' to 'Master PW'
+or 'Master Password'
+- And the killer feature that I would really love to have in a Desktop
+PasswordMaker client: I am quite unhappy with the security risk of
+copying a password to the system clipboard (see [1]), and one way to
+work around would be for a secure transfer from PasswordMaker Python
+to the input field of the password. For example, after generating the
+password, the user would refocus the password input field in the
+browser and hit a 'ctrl+alt+`' or similar global keybinding (analogous
+to the CoolKey in the Firefox Extension) which would insert the
+password into the password field without passing via the system
+clipboard. Thus someone else using the computer later cannot recover
+any given password via an uncleared clipboard.
+- Perhaps also a 'Mask password' feature (especially if the above is
+implemented) to display blank or stars instead of the actual password.
+And maybe a 'Copy' button.
+
