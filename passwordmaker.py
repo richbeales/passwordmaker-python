@@ -154,6 +154,8 @@ def gui():
             if len(current_passwd) > 0:
                 self.passwd_text.delete(0,len(current_passwd))
             self.passwd_text.insert(0,pw)
+            self.clipboard_clear()
+            self.clipboard_append(pw)
 
     root = tk.Tk()
     app = Application(master=root)
