@@ -40,10 +40,11 @@ from pwmlib import *
 
 def gui():
     import Tkinter as tk
-
+    
     class Application(tk.Frame):
 
         def __init__(self, master=None):
+            self.PWmaker = PWM()
             tk.Frame.__init__(self, master)
             self.grid(sticky="nsew")
             self.top = root.winfo_toplevel()
@@ -66,8 +67,9 @@ def gui():
             self.mpw_text = tk.Entry(self, show="*")
             self.mpw_text.insert(0, "")
             self.alg_label = tk.Label(self, justify="left", text="Algorithm")
-            self.alg_text = tk.Entry(self)
-            self.alg_text.insert(0, settings.Algorithm)
+            self.alg = tk.StringVar(self)
+            self.alg.set(settings.Algorithm)
+            self.alg_combo = apply(tk.OptionMenu, (self, self.alg) + tuple(self.PWmaker.valid_algs))
             self.user_label = tk.Label(self, justify="left", text="Username")
             self.user_text = tk.Entry(self)
             self.user_text.insert(0, settings.Username)
@@ -99,7 +101,7 @@ def gui():
             self.mpw_label.grid(row=1, column=0, sticky="w")
             self.mpw_text.grid(row=1, column=1, sticky="e")
             self.alg_label.grid(row=2, column=0, sticky="w")
-            self.alg_text.grid(row=2, column=1, sticky="e")
+            self.alg_combo.grid(row=2, column=1, sticky="e")
             self.user_label.grid(row=3, column=0, sticky="w")
             self.user_text.grid(row=3, column=1, sticky="e")
             self.mod_label.grid(row=4, column=0, sticky="w")
@@ -120,7 +122,7 @@ def gui():
 
         def save(self):
             self.settings.URL = self.url_text.get()
-            self.settings.Algorithm = self.alg_text.get() 
+            self.settings.Algorithm = self.alg.get() 
             self.settings.Username = self.user_text.get()
             self.settings.Modifier = self.mod_text.get()
             self.settings.Length = self.len_spinner.get()
@@ -136,8 +138,7 @@ def gui():
         def generate(self):
             self.generate_button.flash()
             try:
-                PWmaker = PWM()
-                pw = PWmaker.generatepassword(self.alg_text.get(),
+                pw = self.PWmaker.generatepassword(self.alg.get(),
                                               self.mpw_text.get(),
                                               self.url_text.get() + self.user_text.get() + self.mod_text.get(),
                                               self.settings.UseLeet,
