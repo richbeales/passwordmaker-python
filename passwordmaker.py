@@ -120,15 +120,22 @@ def gui():
             self.passwd_label.grid(row=11,column=0)
             self.passwd_text.grid(row=11,column=1,sticky="nsew")
 
+        def getsettings(self):
+            settings = PWM_Settings()
+            settings.URL = self.url_text.get()
+            settings.Algorithm = self.alg.get() 
+            settings.Username = self.user_text.get()
+            settings.Modifier = self.mod_text.get()
+            settings.Length = int(self.len_spinner.get())
+            settings.CharacterSet = self.charset_text.get()
+            settings.Prefix = self.pfx_text.get()
+            settings.Suffix = self.sfx_text.get()
+            settings.MasterPass = self.mpw_text.get()
+            return settings
+
         def save(self):
-            self.settings.URL = self.url_text.get()
-            self.settings.Algorithm = self.alg.get() 
-            self.settings.Username = self.user_text.get()
-            self.settings.Modifier = self.mod_text.get()
-            self.settings.Length = self.len_spinner.get()
-            self.settings.CharacterSet = self.charset_text.get()
-            self.settings.Prefix = self.pfx_text.get()
-            self.settings.Suffix = self.sfx_text.get()
+            self.settings = self.getsettings()
+            self.settings.MasterPass = '' # blank this out when saving for now
             self.settings.save()
 
         def load(self):
@@ -138,16 +145,8 @@ def gui():
         def generate(self):
             self.generate_button.flash()
             try:
-                pw = self.PWmaker.generatepassword(self.alg.get(),
-                                              self.mpw_text.get(),
-                                              self.url_text.get() + self.user_text.get() + self.mod_text.get(),
-                                              self.settings.UseLeet,
-                                              self.settings.LeetLvl - 1,
-                                              int(self.len_spinner.get()),
-                                              self.charset_text.get(),
-                                              self.pfx_text.get(),
-                                              self.sfx_text.get(),
-                                             )
+                print self.getsettings()
+                pw = self.PWmaker.generatepasswordfrom(self.getsettings())
             except PWM_Error, e:
                 pw = str(e)
             current_passwd = self.passwd_text.get()

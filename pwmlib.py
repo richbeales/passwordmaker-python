@@ -50,6 +50,7 @@ class PWM:
    """
       Main PasswordMaker class used for generating passwords
    """
+   FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
 
    def __init__(self):
       self.valid_algs = self.getValidAlgorithms()
@@ -67,6 +68,18 @@ class PWM:
         pass
       return valid_algs
 
+   def generatepasswordfrom(self,settings):
+      return self.generatepassword(settings.Algorithm,
+                              settings.MasterPass,
+                              settings.URL + settings.Username + settings.Modifier,
+                              settings.UseLeet,
+                              settings.LeetLvl,
+                              settings.Length,
+                              settings.CharacterSet,
+                              settings.Prefix,
+                              settings.Suffix)
+
+   # L33t not used here
    def generatepassword(self,hashAlgorithm, key, data, whereToUseL33t, l33tLevel, passwordLength, charset, prefix="", suffix=""):
       # Never *ever, ever* allow the charset's length<2 else
       # the hash algorithms will run indefinitely
@@ -254,26 +267,43 @@ to false for keeping leading zeros"""
 
 class PWM_Settings:
     def __init__(self):
-            self.URL = ""
-            #self.MasterPass = "" # don't really want to save this
-            self.Algorithm = "md5"
-            self.Username = ""
-            self.Modifier = ""
-            self.Length = 8
-            self.CharacterSet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
-            self.Prefix = ""
-            self.Suffix = ""
-            self.UseLeet = False
-            self.LeetLvl = 0
+        self.URL = ""
+        self.MasterPass = "" # don't really want to save this
+        self.Algorithm = "md5"
+        self.Username = ""
+        self.Modifier = ""
+        self.Length = 8
+        self.CharacterSet = PWM().FULL_CHARSET
+        self.Prefix = ""
+        self.Suffix = ""
+        self.UseLeet = False
+        self.LeetLvl = 1
+
+    def __str__(self):
+        return "URL=%s\nPWD=%s\nAlg=%s\nUsr=%s\nMod=%s\nLen=%s\nChr=%s\nPfx=%s\nSfx=%s\nL3t=%s\nLvl=%s\n" % (
+            self.URL,
+            self.MasterPass,
+            self.Algorithm,
+            self.Username,
+            self.Modifier,
+            self.Length,
+            self.CharacterSet,
+            self.Prefix,
+            self.Suffix,
+            self.UseLeet,
+            self.LeetLvl,
+            )
+             
 
     def load(self):
         import os
         if os.path.exists('pwm.settings'):
-          import pickle
-          f = open('pwm.settings','rb')
-          settings = pickle.load(f)
-          f.close()
-        return settings
+            import pickle
+            f = open('pwm.settings','rb')
+            settings = pickle.load(f)
+            f.close()
+            return settings
+        return PWM_Settings()
 
     def save(self):
         import pickle
