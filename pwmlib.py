@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # coding: utf-8
 """
   PasswordMaker - Creates and manages passwords
@@ -36,7 +35,7 @@
 
 """
 
-import sys, hmac, optparse, math
+import sys, hmac, math
 
 
 class PWM_Error(Exception): 
@@ -60,7 +59,7 @@ class PWM:
       if float(sys.version[:3]) >= 2.5: # We have hashlib
         valid_algs.extend(["sha256", "hmac-sha256"])
       try: # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
-        import Crypto
+        import Crypto  # NOQA
         for alg in ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160", "hmac-rmd160"]:
            if alg not in valid_algs:
               valid_algs.append(alg)
@@ -130,7 +129,7 @@ class PWM:
           elif hashAlgorithm == "hmac-rmd160":
               password += hashclass.any_hmac_rmd160(key, data, charset, trim)
           else:
-              raise PMError("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(valid_algs)))
+              raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
           count += 1
  
       if prefix:
@@ -181,7 +180,7 @@ to false for keeping leading zeros"""
              x = 0
              for i in range(len(dividend)):
                  x = (x << 16) + dividend[i]
-                 q = floor(x / divisor)
+                 q = math.floor(x / divisor)
                  x -= q * divisor
                  if len(quotient) > 0 or q > 0:
                      quotient[len(quotient)] = q
