@@ -1,4 +1,4 @@
-#! /usr/env/python
+#!/usr/bin/env python
 
 from pwmlib import *
 import unittest
