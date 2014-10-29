@@ -100,6 +100,7 @@ class PWM:
       password = ''
       count = 0;
       tkey = key # Copy of the master password so we don't interfere with it.
+      dat = data
       while len(password) < passwordLength and count < 1000:
           if count == 0:
               key = tkey
