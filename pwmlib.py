@@ -18,7 +18,7 @@
   You should have received a copy of the GNU Lesser General Public License
   along with this library; if not, write to the Free Software Foundation,
   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- 
+
   Written by Miquel Burns and Eric H. Jung
 
   PHP version written by Pedro Gimeno Fortea
@@ -26,7 +26,7 @@
   and updated by Miquel Matthew 'Fire' Burns
       <miquelfire@gmail.com>
   Ported to Python by Aurelien Bompard
-      <http://aurelien.bompard.org> 
+      <http://aurelien.bompard.org>
   Updated by Richard Beales
       <rich@richbeales.net>
 
@@ -38,9 +38,9 @@
 import sys, hmac, math
 
 
-class PWM_Error(Exception): 
+class PWM_Error(Exception):
     """
-        Password Maker Error class, inherits from Exception, currently 
+        Password Maker Error class, inherits from Exception, currently
 does nothing else
     """
     pass
@@ -91,15 +91,16 @@ class PWM:
       else:
           trim = True
           hashAlgorithm = alg[0]
-      # Check for validity of algorithm 
+      # Check for validity of algorithm
       if hashAlgorithm not in self.valid_algs:
           raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
- 
+
       # apply the algorithm
       hashclass = PWM_HashUtils()
       password = ''
       count = 0;
       tkey = key # Copy of the master password so we don't interfere with it.
+      dat = data
       while len(password) < passwordLength and count < 1000:
           if count == 0:
               key = tkey
@@ -107,31 +108,31 @@ class PWM:
               key = "%s\n%s" % (tkey, count)
           # for non-hmac algorithms, the key is master pw and url concatenated
           if hashAlgorithm.count("hmac") == 0:
-              data = key+data
+              dat = key+data
           if hashAlgorithm == "sha256":
-              password += hashclass.any_sha256(data, charset, trim)
+              password += hashclass.any_sha256(dat, charset, trim)
           elif hashAlgorithm == "hmac-sha256":
-              password += hashclass.any_hmac_sha256(key, data, charset, trim)
+              password += hashclass.any_hmac_sha256(key, dat, charset, trim)
           elif hashAlgorithm == "sha1":
-              password += hashclass.any_sha1(data, charset, trim)
+              password += hashclass.any_sha1(dat, charset, trim)
           elif hashAlgorithm == "hmac-sha1":
-              password += hashclass.any_hmac_sha1(key, data, charset, trim)
+              password += hashclass.any_hmac_sha1(key, dat, charset, trim)
           elif hashAlgorithm == "md4":
-              password += hashclass.any_md4(data, charset, trim)
+              password += hashclass.any_md4(dat, charset, trim)
           elif hashAlgorithm == "hmac-md4":
-              password += hashclass.any_hmac_md4(key, data, charset, trim)
+              password += hashclass.any_hmac_md4(key, dat, charset, trim)
           elif hashAlgorithm == "md5":
-              password += hashclass.any_md5(data, charset, trim)
+              password += hashclass.any_md5(dat, charset, trim)
           elif hashAlgorithm == "hmac-md5":
-              password += hashclass.any_hmac_md5(key, data, charset, trim)
+              password += hashclass.any_hmac_md5(key, dat, charset, trim)
           elif hashAlgorithm == "rmd160":
-              password += hashclass.any_rmd160(data, charset, trim)
+              password += hashclass.any_rmd160(dat, charset, trim)
           elif hashAlgorithm == "hmac-rmd160":
-              password += hashclass.any_hmac_rmd160(key, data, charset, trim)
+              password += hashclass.any_hmac_rmd160(key, dat, charset, trim)
           else:
               raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
           count += 1
- 
+
       if prefix:
           password = prefix + password
       if suffix:
@@ -140,14 +141,14 @@ class PWM:
 
 
 
- 
+
 class PWM_HashUtils:
     def rstr2any(self, input, encoding, trim=True):
-        """Convert a raw string to an arbitrary string encoding. Set trim 
+        """Convert a raw string to an arbitrary string encoding. Set trim
 to false for keeping leading zeros"""
         divisor = len(encoding)
         remainders = []
- 
+
         # Convert to an array of 16-bit big-endian values, forming the dividend
         dividend = []
         # pad this
@@ -156,7 +157,7 @@ to false for keeping leading zeros"""
         inp = input # Because Miquel is a lazy twit and didn't want to do a search and replace
         for i in range(len(dividend)):
             dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
- 
+
         # Repeatedly perform a long division. The binary array forms the dividend,
         # the length of the encoding is the divisor. Once computed, the quotient
         # forms the dividend for the next step. We stop when the dividend is zero.
@@ -166,8 +167,8 @@ to false for keeping leading zeros"""
                 quotient = []
                 x = 0
                 for i in range(len(dividend)):
-                    x = (int(x) << 16) + dividend[i]
-                    q = math.floor(x / divisor)
+                    x = (x << 16) + dividend[i]
+                    q = x // divisor
                     x -= q * divisor
                     if len(quotient) > 0 or q > 0:
                         quotient.append(q)
@@ -180,18 +181,18 @@ to false for keeping leading zeros"""
              x = 0
              for i in range(len(dividend)):
                  x = (x << 16) + dividend[i]
-                 q = math.floor(x / divisor)
+                 q = x // divisor
                  x -= q * divisor
                  if len(quotient) > 0 or q > 0:
                      quotient[len(quotient)] = q
              remainders[j] = x
              dividend = quotient
- 
-        # Convert the remainders to the output string 
+
+        # Convert the remainders to the output string
         output = ""
-        for i in range(len(remainders)-1, 0, -1):
-            output += encoding[int(remainders[i])]
- 
+        for i in reversed(remainders):
+            output += encoding[i]
+
         return output
 
     def any_md5(self, s, e, t):
@@ -292,7 +293,7 @@ class PWM_Settings:
             self.UseLeet,
             self.LeetLvl,
             )
-             
+
 
     def load(self):
         import os
@@ -309,5 +310,3 @@ class PWM_Settings:
         f = open('pwm.settings','wb')
         pickle.dump(self,f)
         f.close()
-
-
