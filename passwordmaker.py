@@ -43,132 +43,162 @@ import attr
 
 from pwmlib import PWM, PWM_Settings, PWM_Error
 
+try:
+    import tkinter as tk
+except ImportError:
+    tk = None
+
+
+class Entry(tk.Entry):
+    """Entry widget that binds it self to a setting"""
+
+    def __init__(self, parent, setting_name, *args, **kwargs):
+        self.background = parent.background
+        self.settings = parent.settings
+        self.setting_name = setting_name
+        self.type_converter = self._get_type_converter()
+
+        tk.Entry.__init__(self, parent, *args, **kwargs)
+
+        self.bind("<Key>", self.evaluate)
+        self.bind("<BackSpace>", self.evaluate)
+
+    def _get_type_converter(self):
+        """Determines target type from validator"""
+
+        a = attr.fields(PWM_Settings).__getattribute__(self.setting_name)
+        validator = a.validator
+        if validator == PWM_Settings.str_val:
+            return str
+        elif validator == PWM_Settings.int_val:
+            return int
+        elif validator == PWM_Settings.bool_val:
+            return bool
+        else:
+            raise TypeError("Unknown validator type {}.".format(validator))
+
+    def evaluate(self, event):
+        if event.keycode == 22:  # Backspace
+            val = event.widget.get()[:-1]
+        elif event.keycode == 23:  # Tab
+            val = event.widget.get()
+        else:
+            val = event.widget.get() + event.char
+        try:
+            cval = self.type_converter(val)
+            self.settings.__setattr__(self.setting_name, cval)
+            self.config(background=self.background)
+        except ValueError:
+            self.config(background="red")
+
+
+class Application(tk.Frame):
+
+    def __init__(self, root=None):
+        self.root = root
+        self.PWmaker = PWM()
+        tk.Frame.__init__(self, root)
+        self.background = root.cget("background")
+
+        self.settings = PWM_Settings()
+
+        self.create_widgets()
+        self.layout()
+
+    def create_widgets(self):
+
+        # Widgets
+
+        self.labels = []
+        self.entry_widgets = []
+
+        for setting in attr.fields(PWM_Settings):
+            self.labels.append(tk.Label(self, justify="left",
+                                        text=setting.metadata["guitext"]))
+
+            if setting.name == "MasterPass":
+                self.entry_widgets.append(Entry(self, setting.name, show="*"))
+                val = self.settings.__getattribute__(setting.name)
+                self.entry_widgets[-1].insert(0, val)
+
+            elif setting.name == "Algorithm":
+                alg = tk.StringVar(self)
+                alg.set(self.settings.Algorithm)
+                valid_algs = tuple(self.PWmaker.valid_algs)
+                self.entry_widgets.append(tk.OptionMenu(self, alg,
+                                                        *valid_algs))
+            elif setting.name == "Length":
+                self.entry_widgets.append(tk.Spinbox(self, from_=1, to=128))
+                self.entry_widgets[-1].delete(0, "end")
+                self.entry_widgets[-1].insert(0, self.settings.Length)
+            else:
+                self.entry_widgets.append(Entry(self, setting.name))
+                val = self.settings.__getattribute__(setting.name)
+                self.entry_widgets[-1].insert(0, val)
+
+        # Buttons
+
+        self.generate_button = tk.Button(self, text="Generate",
+                                         command=self.generate)
+        self.load_button = tk.Button(self, text="Load", command=self.load)
+        self.save_button = tk.Button(self, text="Save", command=self.save)
+        self.passwd_label = tk.Label(self, justify="left", text="Password")
+        self.passwd_text = tk.Entry(self, fg="blue")
+
+    def layout(self):
+        """Places widgets on the grid"""
+
+        self.grid(sticky="nsew")
+        self.top = self.root.winfo_toplevel()
+        self.top.rowconfigure(0, weight=1)
+        self.top.columnconfigure(0, weight=1)
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
+
+        for i, label in enumerate(self.labels):
+            label.grid(row=i, column=0, sticky="w", padx=5, pady=2)
+
+        for i, entry_widget in enumerate(self.entry_widgets):
+            entry_widget.grid(row=i, column=1, columnspan=2, sticky="we")
+
+        self.rowconfigure(i+1, weight=1)
+
+        self.generate_button.grid(row=i+1, column=1, columnspan=2, pady=5, sticky="nsew")
+        self.load_button.grid(row=i+2, column=1, columnspan=1, pady=5, sticky="we")
+        self.save_button.grid(row=i+2, column=2, columnspan=1, pady=5, sticky="we")
+        self.passwd_label.grid(row=i+3, column=0)
+        self.passwd_text.grid(row=i+3, column=1, columnspan=2, sticky="nsew")
+
+    def save(self):
+        self.settings = self.getsettings()
+        self.settings.MasterPass = ''  # Blank this out when saving for now
+        self.settings.save()
+
+    def load(self):
+        self.settings = self.getsettings()
+        self.settings.load()
+        self.createWidgets()
+
+    def generate(self):
+        self.generate_button.flash()
+        try:
+            pw = self.PWmaker.generatepasswordfrom(self.settings)
+        except PWM_Error as e:
+            pw = str(e)
+        current_passwd = self.passwd_text.get()
+        if len(current_passwd) > 0:
+            self.passwd_text.delete(0, len(current_passwd))
+        self.passwd_text.insert(0, pw)
+        self.clipboard_clear()
+        self.clipboard_append(pw)
+
 
 def gui():
-    import tkinter as tk
-
-    class Application(tk.Frame):
-
-        def __init__(self, master=None):
-            self.PWmaker = PWM()
-            tk.Frame.__init__(self, master)
-            self.grid(sticky="nsew")
-            self.top = root.winfo_toplevel()
-            self.top.rowconfigure( 0, weight=1 )
-            self.top.columnconfigure( 0, weight=1 )
-            self.rowconfigure( 0, weight=1 )
-            self.rowconfigure( 1, weight=1000 )
-            self.columnconfigure( 0, weight=1 )
-            self.settings = PWM_Settings()
-            self.createWidgets()
-
-        def createWidgets(self):
-            settings = self.settings
-
-            # Create the widgets
-            self.url_label = tk.Label(self, justify="left", text="URL")
-            self.url_text = tk.Entry(self)
-            self.url_text.insert(0, settings.URL)
-            self.mpw_label = tk.Label(self, justify="left", text="Master PW")
-            self.mpw_text = tk.Entry(self, show="*")
-            self.mpw_text.insert(0, "")
-            self.alg_label = tk.Label(self, justify="left", text="Algorithm")
-            self.alg = tk.StringVar(self)
-            self.alg.set(settings.Algorithm)
-            self.alg_combo = tk.OptionMenu(*(self, self.alg) + tuple(self.PWmaker.valid_algs))
-            self.user_label = tk.Label(self, justify="left", text="Username")
-            self.user_text = tk.Entry(self)
-            self.user_text.insert(0, settings.Username)
-            self.mod_label = tk.Label(self, justify="left", text="Modifier")
-            self.mod_text = tk.Entry(self)
-            self.mod_text.insert(0, settings.Modifier)
-            self.len_label = tk.Label(self, justify="left", text="Length")
-            self.len_spinner = tk.Spinbox(self,from_=1,to=128)
-            self.len_spinner.delete(0,"end")
-            self.len_spinner.insert(0,settings.Length)
-            self.charset_label = tk.Label(self, justify="left", text="Characters")
-            self.charset_text = tk.Entry(self)
-            self.charset_text.insert(0, settings.CharacterSet)
-            self.pfx_label = tk.Label(self, justify="left", text="Prefix")
-            self.pfx_text = tk.Entry(self)
-            self.pfx_text.insert(0, settings.Prefix)
-            self.sfx_label = tk.Label(self, justify="left", text="Suffix")
-            self.sfx_text = tk.Entry(self)
-            self.sfx_text.insert(0, settings.Suffix)
-            self.generate_button = tk.Button (self, text="Generate", command=self.generate)
-            self.load_button = tk.Button (self, text="Load", command=self.load)
-            self.save_button = tk.Button (self, text="Save", command=self.save)
-            self.passwd_label = tk.Label(self, justify="left", text="Password")
-            self.passwd_text = tk.Entry(self, fg="blue")
-
-            # Place on the grid
-            self.url_label.grid(row=0, column=0, sticky="w")
-            self.url_text.grid(row=0, column=1, sticky="e")
-            self.mpw_label.grid(row=1, column=0, sticky="w")
-            self.mpw_text.grid(row=1, column=1, sticky="e")
-            self.alg_label.grid(row=2, column=0, sticky="w")
-            self.alg_combo.grid(row=2, column=1, sticky="e")
-            self.user_label.grid(row=3, column=0, sticky="w")
-            self.user_text.grid(row=3, column=1, sticky="e")
-            self.mod_label.grid(row=4, column=0, sticky="w")
-            self.mod_text.grid(row=4, column=1, sticky="e")
-            self.len_label.grid(row=5, column=0, sticky="w")
-            self.len_spinner.grid(row=5, column=1, sticky="e")
-            self.charset_label.grid(row=6, column=0, sticky="w")
-            self.charset_text.grid(row=6, column=1, sticky="e")
-            self.pfx_label.grid(row=7, column=0, sticky="w")
-            self.pfx_text.grid(row=7, column=1, sticky="e")
-            self.sfx_label.grid(row=8, column=0, sticky="w")
-            self.sfx_text.grid(row=8, column=1, sticky="e")
-            self.generate_button.grid(row=9, column=0, columnspan=2, pady=5)
-            self.load_button.grid(row=10, column=0, columnspan=1, pady=5)
-            self.save_button.grid(row=10, column=1, columnspan=1, pady=5)
-            self.passwd_label.grid(row=11, column=0)
-            self.passwd_text.grid(row=11, column=1, sticky="nsew")
-
-        def getsettings(self):
-            settings = PWM_Settings()
-            settings.URL = self.url_text.get()
-            settings.Algorithm = self.alg.get()
-            settings.Username = self.user_text.get()
-            settings.Modifier = self.mod_text.get()
-            settings.Length = int(self.len_spinner.get())
-            settings.CharacterSet = self.charset_text.get()
-            settings.Prefix = self.pfx_text.get()
-            settings.Suffix = self.sfx_text.get()
-            settings.MasterPass = self.mpw_text.get()
-            return settings
-
-        def save(self):
-            self.settings = self.getsettings()
-            self.settings.MasterPass = '' # blank this out when saving for now
-            self.settings.save()
-
-        def load(self):
-            self.settings = self.getsettings()
-            self.settings.load()
-            self.createWidgets()
-
-        def generate(self):
-            self.generate_button.flash()
-            try:
-                print(self.getsettings())
-                pw = self.PWmaker.generatepasswordfrom(self.getsettings())
-            except PWM_Error as e:
-                pw = str(e)
-            current_passwd = self.passwd_text.get()
-            if len(current_passwd) > 0:
-                self.passwd_text.delete(0,len(current_passwd))
-            self.passwd_text.insert(0,pw)
-            self.clipboard_clear()
-            self.clipboard_append(pw)
-
     root = tk.Tk()
-    app = Application(master=root)
+    app = Application(root=root)
     app.master.title("PasswordMaker")
     app.mainloop()
-
-#################
 
 
 def cmd():

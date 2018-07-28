@@ -83,17 +83,14 @@ class PWM:
         return self.generatepassword(settings.Algorithm,
                                      settings.MasterPass,
                                      concat_url,
-                                     settings.UseLeet,
-                                     settings.LeetLvl,
                                      settings.Length,
                                      settings.CharacterSet,
                                      settings.Prefix,
                                      settings.Suffix)
 
     # L33t not used here
-    def generatepassword(self, hashAlgorithm, key, data, whereToUseL33t,
-                         l33tLevel, passwordLength, charset, prefix="",
-                         suffix=""):
+    def generatepassword(self, hashAlgorithm, key, data, passwordLength,
+                         charset, prefix="", suffix=""):
         # Never *ever, ever* allow the charset's length<2 else
         # the hash algorithms will run indefinitely
 
@@ -158,6 +155,7 @@ class PWM:
             password = prefix + password
         if suffix:
             password = password[:passwordLength-len(suffix)] + suffix
+
         return password[:passwordLength]
 
 
@@ -311,40 +309,51 @@ class PWM_Settings(object):
 
     URL = attr.ib(default="", validator=str_val,
                   metadata={'cmd1': "-r", 'cmd2': "--url",
+                            "guitext": "URL",
                             "help": "URL (default blank)"})
     MasterPass = attr.ib(default="", validator=str_val,
                          metadata={'cmd1': "-m", 'cmd2': "--mpw",
+                                   "guitext": "Master PW",
                                    "help": "Master password (default: ask)"})
     Algorithm = attr.ib(default="md5", validator=str_val,
                         metadata={'cmd1': "-a", 'cmd2': "--alg",
+                                  "guitext": "Algorithm",
                                   "help": "Hash algorithm [hmac-] " +
                                   "md4/md5/sha1/sha256/rmd160 [_v6] " +
                                   "(default md5)"})
     Username = attr.ib(default="", validator=str_val,
                        metadata={'cmd1': "-u", 'cmd2': "--user",
+                                 "guitext": "Username",
                                  "help": "Username (default blank)"})
     Modifier = attr.ib(default="", validator=str_val,
                        metadata={'cmd1': "-d", 'cmd2': "--modifier",
+                                 "guitext": "Modifier",
                                  "help": "Password modifier (default blank)"})
     Length = attr.ib(default=8, validator=int_val,
                      metadata={'cmd1': "-g", 'cmd2': "--length",
+                               "guitext": "Length",
                                "help": "Password length (default 8)"})
     CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
                            metadata={'cmd1': "-c", 'cmd2': "--charset",
+                                     "guitext": "Characters",
                                      "help": "Characters to use in password " +
                                              "(default [A-Za-z0-9])"})
     Prefix = attr.ib(default="", validator=str_val,
                      metadata={'cmd1': "-p", 'cmd2': "--prefix",
+                               "guitext": "Prefix",
                                "help": "Password prefix (default blank)"})
     Suffix = attr.ib(default="", validator=str_val,
                      metadata={'cmd1': "-s", 'cmd2': "--suffix",
+                               "guitext": "Suffix",
                                "help": "Password suffix (default blank)"})
-    UseLeet = attr.ib(default=False, validator=bool_val,
-                      metadata={'cmd1': "-l", 'cmd2': "--leet",
-                                "help": "Not implemented (does nothing)"})
-    LeetLvl = attr.ib(default=1, validator=int_val,
-                      metadata={'cmd1': "-L", 'cmd2': "--leetlevel",
-                                "help": "Not implemented (does nothing)"})
+#    UseLeet = attr.ib(default=False, validator=bool_val,
+#                      metadata={'cmd1': "-l", 'cmd2': "--leet",
+#                                "guitext": "",
+#                                "help": "Not implemented (does nothing)"})
+#    LeetLvl = attr.ib(default=1, validator=int_val,
+#                      metadata={'cmd1': "-L", 'cmd2': "--leetlevel",
+#                                "guitext": "",
+#                                "help": "Not implemented (does nothing)"})
 
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""
