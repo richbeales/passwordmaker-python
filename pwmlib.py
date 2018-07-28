@@ -309,17 +309,42 @@ class PWM_Settings(object):
     str_val = attr.validators.instance_of(str)
     bool_val = attr.validators.instance_of(bool)
 
-    URL = attr.ib(default="", validator=str_val)
-    MasterPass = attr.ib(default="", validator=str_val)  # Do not save!
-    Algorithm = attr.ib(default="md5", validator=str_val)
-    Username = attr.ib(default="", validator=str_val)
-    Modifier = attr.ib(default="", validator=str_val)
-    Length = attr.ib(default=8, validator=int_val)
-    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val)
-    Prefix = attr.ib(default="", validator=str_val)
-    Suffix = attr.ib(default="", validator=str_val)
-    UseLeet = attr.ib(default=False, validator=bool_val)
-    LeetLvl = attr.ib(default=1, validator=int_val)
+    URL = attr.ib(default="", validator=str_val,
+                  metadata={'cmd1': "-r", 'cmd2': "--url",
+                            "help": "URL (default blank)"})
+    MasterPass = attr.ib(default="", validator=str_val,
+                         metadata={'cmd1': "-m", 'cmd2': "--mpw",
+                                   "help": "Master password (default: ask)"})
+    Algorithm = attr.ib(default="md5", validator=str_val,
+                        metadata={'cmd1': "-a", 'cmd2': "--alg",
+                                  "help": "Hash algorithm [hmac-] " +
+                                  "md4/md5/sha1/sha256/rmd160 [_v6] " +
+                                  "(default md5)"})
+    Username = attr.ib(default="", validator=str_val,
+                       metadata={'cmd1': "-u", 'cmd2': "--user",
+                                 "help": "Username (default blank)"})
+    Modifier = attr.ib(default="", validator=str_val,
+                       metadata={'cmd1': "-d", 'cmd2': "--modifier",
+                                 "help": "Password modifier (default blank)"})
+    Length = attr.ib(default=8, validator=int_val,
+                     metadata={'cmd1': "-g", 'cmd2': "--length",
+                               "help": "Password length (default 8)"})
+    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
+                           metadata={'cmd1': "-c", 'cmd2': "--charset",
+                                     "help": "Characters to use in password " +
+                                             "(default [A-Za-z0-9])"})
+    Prefix = attr.ib(default="", validator=str_val,
+                     metadata={'cmd1': "-p", 'cmd2': "--prefix",
+                               "help": "Password prefix (default blank)"})
+    Suffix = attr.ib(default="", validator=str_val,
+                     metadata={'cmd1': "-s", 'cmd2': "--suffix",
+                               "help": "Password suffix (default blank)"})
+    UseLeet = attr.ib(default=False, validator=bool_val,
+                      metadata={'cmd1': "-l", 'cmd2': "--leet",
+                                "help": "Not implemented (does nothing)"})
+    LeetLvl = attr.ib(default=1, validator=int_val,
+                      metadata={'cmd1': "-L", 'cmd2': "--leetlevel",
+                                "help": "Not implemented (does nothing)"})
 
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""

@@ -37,8 +37,12 @@
   Can be used both on the command-line and with a GUI based on TKinter
 """
 import sys
+import optparse
+
+import attr
 
 from pwmlib import PWM, PWM_Settings, PWM_Error
+
 
 def gui():
     import tkinter as tk
@@ -166,42 +170,39 @@ def gui():
 
 #################
 
+
 def cmd():
     usage = "Usage: %prog [options]"
     settings = PWM_Settings()
     settings.load()
     parser = optparse.OptionParser(usage=usage)
-    parser.add_option("-a", "--alg", dest="alg", default=settings.Algorithm, help="Hash algorithm [hmac-] md4/md5/sha1/sha256/rmd160 [_v6] (default " + settings.Algorithm + ")")
-    parser.add_option("-m", "--mpw", dest="mpw", help="Master password (default: ask)", default="")
-    parser.add_option("-r", "--url", dest="url", help="URL (default blank)", default=settings.URL)
-    parser.add_option("-u", "--user", dest="user", help="Username (default blank)", default=settings.Username)
-    parser.add_option("-d", "--modifier", dest="mod", help="Password modifier (default blank)", default=settings.Modifier)
-    parser.add_option("-g", "--length", dest="len", help="Password length (default 8)", default=settings.Length, type="int")
-    parser.add_option("-c", "--charset", dest="charset", help="Characters to use in password (default [A-Za-z0-9])", default=settings.CharacterSet)
-    parser.add_option("-p", "--prefix", dest="pfx", help="Password prefix (default blank)", default=settings.Prefix)
-    parser.add_option("-s", "--suffix", dest="sfx", help="Password suffix (default blank)", default=settings.Suffix)
-    (options, args) = parser.parse_args()
-    if options.mpw == "":
+
+    for setting in attr.fields(PWM_Settings):
+        cmd1 = setting.metadata["cmd1"]
+        cmd2 = setting.metadata["cmd2"]
+        dest = setting.name
+        default = setting.default
+        __help = setting.metadata["help"]
+        parser.add_option(cmd1, cmd2, dest=dest, default=default, help=__help)
+
+    options, args = parser.parse_args()
+    if options.MasterPass == "":
         import getpass
-        options.mpw = getpass.getpass("Master password: ")
-    # we don't support leet yet
-    leet = None
-    leetlevel = 0
-    try:
-        PWmaker = PWM()
-        print(PWmaker.generatepassword(options.alg,
-                               options.mpw,
-                               options.url + options.user + options.mod,
-                               leet,
-                               leetlevel - 1,
-                               options.len,
-                               options.charset,
-                               options.pfx,
-                               options.sfx,
-                              ))
-    except PWM_Error as e:
-        print(e)
-        sys.exit(1)
+        options.MasterPass = getpass.getpass("Master password: ")
+
+    PWmaker = PWM()
+
+    gen_pwd = PWmaker.generatepassword
+    print(gen_pwd(options.Algorithm,
+                  options.MasterPass,
+                  options.URL + options.Username + options.Modifier,
+                  options.UseLeet,
+                  options.LeetLvl - 1,
+                  options.Length,
+                  options.CharacterSet,
+                  options.Prefix,
+                  options.Suffix,
+                  ))
 
 
 # Main
@@ -210,6 +211,3 @@ if __name__ == "__main__":
         gui()
     else:
         cmd()
-
-
-
