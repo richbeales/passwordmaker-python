@@ -39,7 +39,7 @@
 from pwmlib import *
 
 def gui():
-    import Tkinter as tk
+    import tkinter as tk
     
     class Application(tk.Frame):
 
@@ -69,7 +69,7 @@ def gui():
             self.alg_label = tk.Label(self, justify="left", text="Algorithm")
             self.alg = tk.StringVar(self)
             self.alg.set(settings.Algorithm)
-            self.alg_combo = apply(tk.OptionMenu, (self, self.alg) + tuple(self.PWmaker.valid_algs))
+            self.alg_combo = tk.OptionMenu(*(self, self.alg) + tuple(self.PWmaker.valid_algs))
             self.user_label = tk.Label(self, justify="left", text="Username")
             self.user_text = tk.Entry(self)
             self.user_text.insert(0, settings.Username)
@@ -145,9 +145,9 @@ def gui():
         def generate(self):
             self.generate_button.flash()
             try:
-                print self.getsettings()
+                print(self.getsettings())
                 pw = self.PWmaker.generatepasswordfrom(self.getsettings())
-            except PWM_Error, e:
+            except PWM_Error as e:
                 pw = str(e)
             current_passwd = self.passwd_text.get()
             if len(current_passwd) > 0:
@@ -186,7 +186,7 @@ def cmd():
     leetlevel = 0
     try:
         PWmaker = PWM()
-        print PWmaker.generatepassword(options.alg,
+        print(PWmaker.generatepassword(options.alg,
                                options.mpw,
                                options.url + options.user + options.mod,
                                leet,
@@ -195,9 +195,9 @@ def cmd():
                                options.charset,
                                options.pfx,
                                options.sfx,
-                              )
-    except PWM_Error, e:
-        print e
+                              ))
+    except PWM_Error as e:
+        print(e)
         sys.exit(1)
 
 

@@ -143,20 +143,28 @@ class PWM:
 
 
 class PWM_HashUtils:
-    def rstr2any(self, input, encoding, trim=True):
-        """Convert a raw string to an arbitrary string encoding. Set trim
-to false for keeping leading zeros"""
+    def rstr2any(self, inp, encoding, trim=True):
+        """Convert a raw string to an arbitrary string encoding.
+        
+        Set trim to false for keeping leading zeros
+           
+        """
+        
         divisor = len(encoding)
         remainders = []
 
         # Convert to an array of 16-bit big-endian values, forming the dividend
         dividend = []
         # pad this
-        while len(dividend) < math.ceil(len(input) / 2):
+        while len(dividend) < math.ceil(len(inp) / 2):
             dividend.append(0)
-        inp = input # Because Miquel is a lazy twit and didn't want to do a search and replace
+
         for i in range(len(dividend)):
-            dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
+            print(dividend)
+            print(inp, encoding, trim)
+            print(repr(chr(inp[i * 2])))
+            print(chr(inp[i * 2]))
+            dividend[i] = (inp[i * 2] << 8) | inp[i * 2 + 1]
 
         # Repeatedly perform a long division. The binary array forms the dividend,
         # the length of the encoding is the divisor. Once computed, the quotient
@@ -175,7 +183,7 @@ to false for keeping leading zeros"""
                 remainders.append(x)
                 dividend = quotient
         else:
-            full_length = math.ceil(float(len(input) * 8) / (math.log(len(encoding)) / math.log(2)))
+            full_length = math.ceil(float(len(inp) * 8) / (math.log(len(encoding)) / math.log(2)))
             for j in range(len(full_length)):
              quotient = []
              x = 0
@@ -193,16 +201,19 @@ to false for keeping leading zeros"""
         for i in reversed(remainders):
             output += encoding[i]
 
+        print(inp, encoding, trim, output)
+
         return output
 
     def any_md5(self, s, e, t):
+        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
-            hash = hashlib.md5(s).digest()
+            __hash = hashlib.md5(s).digest()
         else:
             import md5
-            hash = md5.new(s).digest()
-        return self.rstr2any(hash, e, t)
+            __hash = md5.new(s).digest()
+        return self.rstr2any(__hash, e, t)
 
     def any_hmac_md5(self, k, d, e, t):
         if float(sys.version[:3]) >= 2.5:
@@ -214,13 +225,14 @@ to false for keeping leading zeros"""
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha1(self, s, e, t):
+        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
-            hash = hashlib.sha1(s).digest()
+            __hash = hashlib.sha1(s).digest()
         else:
             import sha
-            hash = sha.new(s).digest()
-        return self.rstr2any(hash, e, t)
+            __hash = sha.new(s).digest()
+        return self.rstr2any(__hash, e, t)
 
     def any_hmac_sha1(self, k, d, e, t):
         if float(sys.version[:3]) >= 2.5:
@@ -232,13 +244,14 @@ to false for keeping leading zeros"""
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha256(self, s, e, t):
+        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
-            hash = hashlib.sha256(s).digest()
+            __hash = hashlib.sha256(s).digest()
         else:
             from Crypto.Hash import SHA256
-            hash = SHA256.new(s).digest()
-        return self.rstr2any(hash, e, t)
+            __hash = SHA256.new(s).digest()
+        return self.rstr2any(__hash, e, t)
 
     def any_hmac_sha256(self, k, d, e, t):
         if float(sys.version[:3]) >= 2.5:
@@ -250,6 +263,7 @@ to false for keeping leading zeros"""
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_md4(self, s, e, t):
+        s = s.encode("utf-8")
         from Crypto.Hash import MD4
         return self.rstr2any(MD4.new(s).digest(), e, t)
 
@@ -258,6 +272,7 @@ to false for keeping leading zeros"""
         return self.rstr2any(hmac.new(k, d, Crypto.Hash.MD4).digest(), e, t)
 
     def any_rmd160(self, s, e, t):
+        s = s.encode("utf-8")
         from Crypto.Hash import RIPEMD
         return self.rstr2any(RIPEMD.new(s).digest(), e, t)
 
