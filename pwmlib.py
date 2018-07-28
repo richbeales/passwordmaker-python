@@ -40,6 +40,8 @@ import hmac
 import math
 import json
 
+import attr
+
 
 class PWM_Error(Exception):
     """
@@ -161,7 +163,10 @@ class PWM_HashUtils:
             dividend.append(0)
 
         for i in range(len(dividend)):
-            dividend[i] = (inp[i * 2] << 8) | inp[i * 2 + 1]
+            try:
+                dividend[i] = (inp[i * 2] << 8) | inp[i * 2 + 1]
+            except TypeError:  # Python 2.x
+                dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
 
         """
         Repeatedly perform a long division. The binary array forms the
@@ -279,36 +284,36 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, Crypto.Hash.RIPEMD).digest(), e, t)
 
 
-class PWM_Settings:
-    def __init__(self):
-        self.URL = ""
-        self.MasterPass = ""  # don't really want to save this
-        self.Algorithm = "md5"
-        self.Username = ""
-        self.Modifier = ""
-        self.Length = 8
-        self.CharacterSet = PWM().FULL_CHARSET
-        self.Prefix = ""
-        self.Suffix = ""
-        self.UseLeet = False
-        self.LeetLvl = 1
+@attr.s
+class PWM_Settings(object):
+    URL = attr.ib(default="")
+    MasterPass = attr.ib(default="")  # don't really want to save this
+    Algorithm = attr.ib(default="md5")
+    Username = attr.ib(default="")
+    Modifier = attr.ib(default="")
+    Length = attr.ib(default=8)
+    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET))
+    Prefix = attr.ib(default="")
+    Suffix = attr.ib(default="")
+    UseLeet = attr.ib(default=False)
+    LeetLvl = attr.ib(default=1)
 
-    def __str__(self):
-        return "URL=%s\nPWD=%s\nAlg=%s\nUsr=%s\nMod=%s\nLen=%s\nChr=%s\nPfx=%s\nSfx=%s\nL3t=%s\nLvl=%s\n" % (
-            self.URL,
-            self.MasterPass,
-            self.Algorithm,
-            self.Username,
-            self.Modifier,
-            self.Length,
-            self.CharacterSet,
-            self.Prefix,
-            self.Suffix,
-            self.UseLeet,
-            self.LeetLvl,
-            )
+    def _get_attr_filters(self):
+        """Returns attr filters that excludes MasterPass"""
 
-    def load(self):
+        return attr.filters.exclude(attr.fields(PWM_Settings).MasterPass)
+
+    def load(self, filepath='pwm.settings'):
+        """Loads setting from a json file"""
+
+        with open(filepath) as infile:
+            file_dict = json.load(infile)
+
+        passwd_filter = self._get_attr_filters()
+        attr_fields = attr.fields(PWM_Settings)
+        print(attr_fields)
+
+
         import os
         if os.path.exists('pwm.settings'):
             import pickle
@@ -318,8 +323,11 @@ class PWM_Settings:
             return settings
         return PWM_Settings()
 
-    def save(self):
-        import pickle
-        f = open('pwm.settings', 'wb')
-        pickle.dump(self, f)
-        f.close()
+    def save(self, filepath='pwm.settings'):
+        """Saves setting to a json file"""
+
+        passwd_filter = self._get_attr_filters()
+        attr_dict = attr.asdict(self, filter=passwd_filter)
+
+        with open(filepath, 'w') as outfile:
+            json.dump(attr_dict, outfile, sort_keys=True, indent=4)

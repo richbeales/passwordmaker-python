@@ -36,7 +36,9 @@
 
   Can be used both on the command-line and with a GUI based on TKinter
 """
-from pwmlib import PWM, PWM_Settings
+import sys
+
+from pwmlib import PWM, PWM_Settings, PWM_Error
 
 def gui():
     import tkinter as tk
