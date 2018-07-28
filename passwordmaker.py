@@ -141,7 +141,8 @@ def gui():
             self.settings.save()
 
         def load(self):
-            self.settings = self.settings.load()
+            self.settings = self.getsettings()
+            self.settings.load()
             self.createWidgets()
 
         def generate(self):

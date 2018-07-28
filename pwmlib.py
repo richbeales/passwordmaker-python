@@ -37,10 +37,16 @@
 
 import sys
 import hmac
-import math
 import json
-
 import attr
+
+from math import ceil, log
+
+try:
+    # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
+    import Crypto
+except ImportError:
+    Crypto = None
 
 
 class PWM_Error(Exception):
@@ -54,7 +60,8 @@ does nothing else
 class PWM:
     """Main PasswordMaker class used for generating passwords"""
 
-    FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
+    FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
+                   "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
 
     def __init__(self):
         self.valid_algs = self.getValidAlgorithms()
@@ -63,19 +70,19 @@ class PWM:
         valid_algs = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
         if float(sys.version[:3]) >= 2.5:  # We have hashlib
             valid_algs.extend(["sha256", "hmac-sha256"])
-        try: # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
-            import Crypto  # NOQA
-            for alg in ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160", "hmac-rmd160"]:
-                if alg not in valid_algs:
-                    valid_algs.append(alg)
-        except ImportError:
-            pass
+        if Crypto is not None:
+            crypto_algs = ["md4", "hmac-md4", "sha256", "hmac-sha256",
+                           "rmd160", "hmac-rmd160"]
+            valid_algs += crypto_algs
+            valid_algs = list(set(valid_algs))
+
         return valid_algs
 
     def generatepasswordfrom(self, settings):
+        concat_url = settings.URL + settings.Username + settings.Modifier
         return self.generatepassword(settings.Algorithm,
                                      settings.MasterPass,
-                                     settings.URL + settings.Username + settings.Modifier,
+                                     concat_url,
                                      settings.UseLeet,
                                      settings.LeetLvl,
                                      settings.Length,
@@ -84,9 +91,12 @@ class PWM:
                                      settings.Suffix)
 
     # L33t not used here
-    def generatepassword(self, hashAlgorithm, key, data, whereToUseL33t, l33tLevel, passwordLength, charset, prefix="", suffix=""):
+    def generatepassword(self, hashAlgorithm, key, data, whereToUseL33t,
+                         l33tLevel, passwordLength, charset, prefix="",
+                         suffix=""):
         # Never *ever, ever* allow the charset's length<2 else
         # the hash algorithms will run indefinitely
+
         if len(charset) < 2:
             return ""
         alg = hashAlgorithm.split("_")
@@ -96,22 +106,27 @@ class PWM:
         else:
             trim = True
             hashAlgorithm = alg[0]
+
         # Check for validity of algorithm
+        algo_error_msg = "Unknown or misspelled algorithm: {algorithm}. " + \
+                         "Valid algorithms: {valid}"
         if hashAlgorithm not in self.valid_algs:
-            raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
+                raise PWM_Error(algo_error_msg.format(algorith=hashAlgorithm,
+                                                      valid=self.valid_algs))
 
         # apply the algorithm
         hashclass = PWM_HashUtils()
         password = ''
         count = 0
-        tkey = key  # Copy of the master password so we don't interfere with it.
+        tkey = key  # Copy of the master password so we don't interfere with it
         dat = data
         while len(password) < passwordLength and count < 1000:
             if count == 0:
                 key = tkey
             else:
                 key = "%s\n%s" % (tkey, count)
-             # for non-hmac algorithms, the key is master pw and url concatenated
+            # For non-hmac algorithms, the key is master pw and url
+            # concatenated
             if hashAlgorithm.count("hmac") == 0:
                 dat = key+data
             if hashAlgorithm == "sha256":
@@ -135,7 +150,8 @@ class PWM:
             elif hashAlgorithm == "hmac-rmd160":
                 password += hashclass.any_hmac_rmd160(key, dat, charset, trim)
             else:
-                raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
+                raise PWM_Error(algo_error_msg.format(algorith=hashAlgorithm,
+                                                      valid=self.valid_algs))
             count += 1
 
         if prefix:
@@ -159,7 +175,7 @@ class PWM_HashUtils:
         # Convert to an array of 16-bit big-endian values, forming the dividend
         dividend = []
         # pad this
-        while len(dividend) < math.ceil(len(inp) / 2):
+        while len(dividend) < ceil(len(inp) / 2):
             dividend.append(0)
 
         for i in range(len(dividend)):
@@ -188,7 +204,8 @@ class PWM_HashUtils:
                 remainders.append(x)
                 dividend = quotient
         else:
-            full_length = math.ceil(float(len(inp) * 8) / (math.log(len(encoding)) / math.log(2)))
+            full_length = ceil(float(len(inp) * 8) /
+                               (log(len(encoding)) / log(2)))
             for j in range(len(full_length)):
                 quotient = []
                 x = 0
@@ -286,17 +303,23 @@ class PWM_HashUtils:
 
 @attr.s
 class PWM_Settings(object):
-    URL = attr.ib(default="")
-    MasterPass = attr.ib(default="")  # don't really want to save this
-    Algorithm = attr.ib(default="md5")
-    Username = attr.ib(default="")
-    Modifier = attr.ib(default="")
-    Length = attr.ib(default=8)
-    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET))
-    Prefix = attr.ib(default="")
-    Suffix = attr.ib(default="")
-    UseLeet = attr.ib(default=False)
-    LeetLvl = attr.ib(default=1)
+    """Setting class holding all parameters for hash generation"""
+
+    int_val = attr.validators.instance_of(int)
+    str_val = attr.validators.instance_of(str)
+    bool_val = attr.validators.instance_of(bool)
+
+    URL = attr.ib(default="", validator=str_val)
+    MasterPass = attr.ib(default="", validator=str_val)  # Do not save!
+    Algorithm = attr.ib(default="md5", validator=str_val)
+    Username = attr.ib(default="", validator=str_val)
+    Modifier = attr.ib(default="", validator=str_val)
+    Length = attr.ib(default=8, validator=int_val)
+    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val)
+    Prefix = attr.ib(default="", validator=str_val)
+    Suffix = attr.ib(default="", validator=str_val)
+    UseLeet = attr.ib(default=False, validator=bool_val)
+    LeetLvl = attr.ib(default=1, validator=int_val)
 
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""
@@ -310,18 +333,18 @@ class PWM_Settings(object):
             file_dict = json.load(infile)
 
         passwd_filter = self._get_attr_filters()
-        attr_fields = attr.fields(PWM_Settings)
-        print(attr_fields)
+        attr_fields = attr.asdict(self, filter=passwd_filter)
 
-
-        import os
-        if os.path.exists('pwm.settings'):
-            import pickle
-            f = open('pwm.settings', 'rb')
-            settings = pickle.load(f)
-            f.close()
-            return settings
-        return PWM_Settings()
+        try:
+            for attr_key in attr_fields:
+                if attr_key in file_dict:
+                    self.__setattr__(attr_key, file_dict[attr_key])
+                    attr.validate(self)
+        except TypeError as err:
+            # If attrs are of the wrong type then roll back
+            for attr_key in attr_fields:
+                self.__setattr__(attr_key, attr_fields[attr_key])
+            raise TypeError(err)
 
     def save(self, filepath='pwm.settings'):
         """Saves setting to a json file"""
