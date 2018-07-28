@@ -12,14 +12,14 @@
   your option) any later version.
 
   This library is distributed in the hope that it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
   FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
   for more details.
 
   You should have received a copy of the GNU Lesser General Public License
   along with this library; if not, write to the Free Software Foundation,
   Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
- 
+
   Written by Miquel Burns and Eric H. Jung
 
   PHP version written by Pedro Gimeno Fortea
@@ -27,7 +27,7 @@
   and updated by Miquel Matthew 'Fire' Burns
       <miquelfire@gmail.com>
   Ported to Python by Aurelien Bompard
-      <http://aurelien.bompard.org> 
+      <http://aurelien.bompard.org>
   Updated by Richard Beales
       <rich@richbeales.net>
 
@@ -36,11 +36,11 @@
 
   Can be used both on the command-line and with a GUI based on TKinter
 """
-from pwmlib import *
+from pwmlib import PWM, PWM_Settings
 
 def gui():
     import tkinter as tk
-    
+
     class Application(tk.Frame):
 
         def __init__(self, master=None):
@@ -114,16 +114,16 @@ def gui():
             self.pfx_text.grid(row=7, column=1, sticky="e")
             self.sfx_label.grid(row=8, column=0, sticky="w")
             self.sfx_text.grid(row=8, column=1, sticky="e")
-            self.generate_button.grid(row=9,column=0,columnspan=2,pady=5)
-            self.load_button.grid(row=10,column=0,columnspan=1,pady=5)
-            self.save_button.grid(row=10,column=1,columnspan=1,pady=5)
-            self.passwd_label.grid(row=11,column=0)
-            self.passwd_text.grid(row=11,column=1,sticky="nsew")
+            self.generate_button.grid(row=9, column=0, columnspan=2, pady=5)
+            self.load_button.grid(row=10, column=0, columnspan=1, pady=5)
+            self.save_button.grid(row=10, column=1, columnspan=1, pady=5)
+            self.passwd_label.grid(row=11, column=0)
+            self.passwd_text.grid(row=11, column=1, sticky="nsew")
 
         def getsettings(self):
             settings = PWM_Settings()
             settings.URL = self.url_text.get()
-            settings.Algorithm = self.alg.get() 
+            settings.Algorithm = self.alg.get()
             settings.Username = self.user_text.get()
             settings.Modifier = self.mod_text.get()
             settings.Length = int(self.len_spinner.get())
