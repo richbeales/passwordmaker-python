@@ -43,7 +43,7 @@ import sys
 
 try:
     import tkinter as tk
-    from tkinter import simpledialog
+    from tkinter import simpledialog, messagebox
 except ImportError:
     tk = None
 
@@ -285,6 +285,12 @@ class Application(tk.Frame):
         index = int(self.listbox.curselection()[0])
         value = self.listbox.get(index)
         if value == "default":
+            return
+
+        # Check if the setting is intentionally being deleted
+        msgbox = messagebox.askyesno
+        if not msgbox("Delete setting",
+                      "Do you want to permanently delete the setting?"):
             return
 
         pwm_idx = self.settings_list.pwm_names.index(value)
