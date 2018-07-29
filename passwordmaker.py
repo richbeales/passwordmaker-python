@@ -30,8 +30,9 @@
       <http://aurelien.bompard.org>
   Updated by Richard Beales
       <rich@richbeales.net>
+  Ported to Python3 by Martin Manns
 
-  This version should work with python > 2.3. The pycrypto module enables
+  This version should work with python > 3.5 The pycrypto module enables
   additional algorithms.
 
   Can be used both on the command-line and with a GUI based on TKinter
@@ -49,7 +50,11 @@ except ImportError:
     tk = None
 
 
-class Entry(tk.Entry):
+class SettingBinderBase(object):
+    """Mixin, do not subclass"""
+
+
+class Entry(tk.Entry, SettingBinderBase):
     """Entry widget that binds it self to a setting"""
 
     def __init__(self, parent, setting_name, *args, **kwargs):
@@ -90,6 +95,7 @@ class Entry(tk.Entry):
             self.config(background=self.background)
         except ValueError:
             self.config(background="red")
+        print(self.settings)
 
 
 class Application(tk.Frame):
@@ -104,6 +110,14 @@ class Application(tk.Frame):
 
         self.create_widgets()
         self.layout()
+
+    def on_optionmenu(self, event):
+        """Algorithm option selected"""
+
+        self.settings.Algorithm = self.alg.get()
+
+    def on_len_spinbox(self):
+        self.settings.Length = int(self.len_spinbox.get())
 
     def create_widgets(self):
 
@@ -122,13 +136,17 @@ class Application(tk.Frame):
                 self.entry_widgets[-1].insert(0, val)
 
             elif setting.name == "Algorithm":
-                alg = tk.StringVar(self)
-                alg.set(self.settings.Algorithm)
+                self.alg = tk.StringVar(self)
+                self.alg.set(self.settings.Algorithm)
                 valid_algs = tuple(self.PWmaker.valid_algs)
-                self.entry_widgets.append(tk.OptionMenu(self, alg,
-                                                        *valid_algs))
+                option_menu = tk.OptionMenu(self, self.alg, *valid_algs,
+                                            command=self.on_optionmenu)
+                self.entry_widgets.append(option_menu)
             elif setting.name == "Length":
-                self.entry_widgets.append(tk.Spinbox(self, from_=1, to=128))
+                self.len_spinbox = tk.Spinbox(self, from_=8, to=128,
+                                              state='readonly',
+                                              command=self.on_len_spinbox)
+                self.entry_widgets.append(self.len_spinbox)
                 self.entry_widgets[-1].delete(0, "end")
                 self.entry_widgets[-1].insert(0, self.settings.Length)
             else:
@@ -164,9 +182,12 @@ class Application(tk.Frame):
 
         self.rowconfigure(i+1, weight=1)
 
-        self.generate_button.grid(row=i+1, column=1, columnspan=2, pady=5, sticky="nsew")
-        self.load_button.grid(row=i+2, column=1, columnspan=1, pady=5, sticky="we")
-        self.save_button.grid(row=i+2, column=2, columnspan=1, pady=5, sticky="we")
+        self.generate_button.grid(row=i+1, column=1, columnspan=2, pady=5,
+                                  sticky="nsew")
+        self.load_button.grid(row=i+2, column=1, columnspan=1, pady=5,
+                              sticky="we")
+        self.save_button.grid(row=i+2, column=2, columnspan=1, pady=5,
+                              sticky="we")
         self.passwd_label.grid(row=i+3, column=0)
         self.passwd_text.grid(row=i+3, column=1, columnspan=2, sticky="nsew")
 
@@ -192,7 +213,7 @@ class Application(tk.Frame):
         self.passwd_text.insert(0, pw)
         self.clipboard_clear()
         self.clipboard_append(pw)
-
+        print(pw)
 
 def gui():
     root = tk.Tk()
