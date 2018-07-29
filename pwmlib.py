@@ -44,9 +44,21 @@ from math import ceil, log
 
 try:
     # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
-    import Crypto
+    from Crypto.Hash import MD4, SHA256, RIPEMD
+    HAS_CRYPTO = True
 except ImportError:
-    Crypto = None
+    HAS_CRYPTO = False
+
+HAS_HASHLIB = float(sys.version[:3]) >= 2.5
+
+if HAS_HASHLIB:
+    import hashlib
+else:
+    try:
+        import sha
+        import md5
+    except ImportError:
+        raise ImportError("No crypto library found")
 
 
 class PWM_Error(Exception):
@@ -60,12 +72,12 @@ class PWM(object):
                    "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
 
     _ALGORITHMS = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
-    if float(sys.version[:3]) >= 2.5:
+    if HAS_HASHLIB:
         _ALGORITHMS += ["sha256", "hmac-sha256"]
-    if Crypto is not None:
+    if HAS_CRYPTO:
         _ALGORITHMS += ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160",
                         "hmac-rmd160"]
-    ALGORITHMS = set(_ALGORITHMS)
+    ALGORITHMS = tuple(set(_ALGORITHMS))
 
     def generatepasswordfrom(self, settings):
         concat_url = settings.URL + settings.Username + settings.Modifier
@@ -217,74 +229,58 @@ class PWM_HashUtils:
         return output
 
     def any_md5(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             __hash = hashlib.md5(s).digest()
         else:
-            import md5
             __hash = md5.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
     def any_hmac_md5(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             hashfunc = hashlib.md5
         else:
-            import md5
             hashfunc = md5
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha1(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             __hash = hashlib.sha1(s).digest()
         else:
-            import sha
             __hash = sha.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
     def any_hmac_sha1(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             hashfunc = hashlib.sha1
         else:
-            import sha
             hashfunc = sha
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha256(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             __hash = hashlib.sha256(s).digest()
         else:
-            from Crypto.Hash import SHA256
             __hash = SHA256.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
     def any_hmac_sha256(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
             hashfunc = hashlib.sha256
         else:
-            import Crypto.Hash.SHA256
-            hashfunc = Crypto.Hash.SHA256
+            hashfunc = SHA256
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_md4(self, s, e, t):
-        from Crypto.Hash import MD4
         return self.rstr2any(MD4.new(s).digest(), e, t)
 
     def any_hmac_md4(self, k, d, e, t):
-        import Crypto.Hash.MD4
-        return self.rstr2any(hmac.new(k, d, Crypto.Hash.MD4).digest(), e, t)
+        return self.rstr2any(hmac.new(k, d, MD4).digest(), e, t)
 
     def any_rmd160(self, s, e, t):
-        from Crypto.Hash import RIPEMD
         return self.rstr2any(RIPEMD.new(s).digest(), e, t)
 
     def any_hmac_rmd160(self, k, d, e, t):
-        import Crypto.Hash.RIPEMD
-        return self.rstr2any(hmac.new(k, d, Crypto.Hash.RIPEMD).digest(), e, t)
+        return self.rstr2any(hmac.new(k, d, RIPEMD).digest(), e, t)
 
 
 @attr.s

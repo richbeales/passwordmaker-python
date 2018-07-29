@@ -213,7 +213,10 @@ class Application(tk.Frame):
         """Loads settings from json file"""
 
         self.settings.load()
-        self.create_widgets()
+
+        for setting, widget in zip(attr.fields(PWM_Settings),
+                                   self.entry_widgets):
+            widget.set(self.settings[setting.name])
 
     def generate(self):
         """Generates and prints password and copies it to the clipboard"""
