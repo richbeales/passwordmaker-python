@@ -50,33 +50,22 @@ except ImportError:
 
 
 class PWM_Error(Exception):
-    """
-        Password Maker Error class, inherits from Exception, currently
-does nothing else
-    """
-    pass
+    """Password Maker Error class"""
 
 
-class PWM:
+class PWM(object):
     """Main PasswordMaker class used for generating passwords"""
 
     FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
                    "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
 
-    def __init__(self):
-        self.valid_algs = self.getValidAlgorithms()
-
-    def getValidAlgorithms(self):
-        valid_algs = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
-        if float(sys.version[:3]) >= 2.5:  # We have hashlib
-            valid_algs.extend(["sha256", "hmac-sha256"])
-        if Crypto is not None:
-            crypto_algs = ["md4", "hmac-md4", "sha256", "hmac-sha256",
-                           "rmd160", "hmac-rmd160"]
-            valid_algs += crypto_algs
-            valid_algs = list(set(valid_algs))
-
-        return valid_algs
+    _ALGORITHMS = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
+    if float(sys.version[:3]) >= 2.5:
+        _ALGORITHMS += ["sha256", "hmac-sha256"]
+    if Crypto is not None:
+        _ALGORITHMS += ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160",
+                        "hmac-rmd160"]
+    ALGORITHMS = set(_ALGORITHMS)
 
     def generatepasswordfrom(self, settings):
         concat_url = settings.URL + settings.Username + settings.Modifier
@@ -105,11 +94,11 @@ class PWM:
             hashAlgorithm = alg[0]
 
         # Check for validity of algorithm
-        algo_error_msg = "Unknown or misspelled algorithm: {algorithm}. " + \
-                         "Valid algorithms: {valid}"
-        if hashAlgorithm not in self.valid_algs:
-                raise PWM_Error(algo_error_msg.format(algorith=hashAlgorithm,
-                                                      valid=self.valid_algs))
+        algo_error_msg = "Unknown or misspelled algorithm: {}. " + \
+                         "Valid algorithms: {}"
+        if hashAlgorithm not in PWM.ALGORITHMS:
+            valid_algs = ", ".join(PWM.ALGORITHMS)
+            raise PWM_Error(algo_error_msg.format(hashAlgorithm, valid_algs))
 
         # apply the algorithm
         hashclass = PWM_HashUtils()
@@ -147,8 +136,9 @@ class PWM:
             elif hashAlgorithm == "hmac-rmd160":
                 password += hashclass.any_hmac_rmd160(key, dat, charset, trim)
             else:
-                raise PWM_Error(algo_error_msg.format(algorith=hashAlgorithm,
-                                                      valid=self.valid_algs))
+                valid_algs = ", ".join(PWM.ALGORITHMS)
+                raise PWM_Error(algo_error_msg.format(hashAlgorithm,
+                                                      valid_algs))
             count += 1
 
         if prefix:
@@ -306,54 +296,59 @@ class PWM_Settings(object):
     int_val = attr.validators.instance_of(int)
     str_val = attr.validators.instance_of(str)
     bool_val = attr.validators.instance_of(bool)
+    algorithm_val = attr.validators.in_(PWM.ALGORITHMS)
 
-    URL = attr.ib(default="", validator=str_val,
+    URL = attr.ib(default="", validator=str_val, type="str",
                   metadata={'cmd1': "-r", 'cmd2': "--url",
                             "guitext": "URL",
                             "help": "URL (default blank)"})
-    MasterPass = attr.ib(default="", validator=str_val,
+    MasterPass = attr.ib(default="", validator=str_val, type="pwd",
                          metadata={'cmd1': "-m", 'cmd2': "--mpw",
                                    "guitext": "Master PW",
                                    "help": "Master password (default: ask)"})
-    Algorithm = attr.ib(default="md5", validator=str_val,
+    Algorithm = attr.ib(default="md5", validator=algorithm_val, type="alg",
                         metadata={'cmd1': "-a", 'cmd2': "--alg",
                                   "guitext": "Algorithm",
                                   "help": "Hash algorithm [hmac-] " +
                                   "md4/md5/sha1/sha256/rmd160 [_v6] " +
                                   "(default md5)"})
-    Username = attr.ib(default="", validator=str_val,
+    Username = attr.ib(default="", validator=str_val, type="str",
                        metadata={'cmd1': "-u", 'cmd2': "--user",
                                  "guitext": "Username",
                                  "help": "Username (default blank)"})
-    Modifier = attr.ib(default="", validator=str_val,
+    Modifier = attr.ib(default="", validator=str_val, type="str",
                        metadata={'cmd1': "-d", 'cmd2': "--modifier",
                                  "guitext": "Modifier",
                                  "help": "Password modifier (default blank)"})
-    Length = attr.ib(default=8, validator=int_val,
+    Length = attr.ib(default=8, validator=int_val, type="int",
                      metadata={'cmd1': "-g", 'cmd2': "--length",
                                "guitext": "Length",
                                "help": "Password length (default 8)"})
     CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
+                           type="str",
                            metadata={'cmd1': "-c", 'cmd2': "--charset",
                                      "guitext": "Characters",
                                      "help": "Characters to use in password " +
                                              "(default [A-Za-z0-9])"})
-    Prefix = attr.ib(default="", validator=str_val,
+    Prefix = attr.ib(default="", validator=str_val, type="str",
                      metadata={'cmd1': "-p", 'cmd2': "--prefix",
                                "guitext": "Prefix",
                                "help": "Password prefix (default blank)"})
-    Suffix = attr.ib(default="", validator=str_val,
+    Suffix = attr.ib(default="", validator=str_val, type="str",
                      metadata={'cmd1': "-s", 'cmd2': "--suffix",
                                "guitext": "Suffix",
                                "help": "Password suffix (default blank)"})
-#    UseLeet = attr.ib(default=False, validator=bool_val,
+#    UseLeet = attr.ib(default=False, validator=bool_val, type="bool",
 #                      metadata={'cmd1': "-l", 'cmd2': "--leet",
 #                                "guitext": "",
 #                                "help": "Not implemented (does nothing)"})
-#    LeetLvl = attr.ib(default=1, validator=int_val,
+#    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
 #                      metadata={'cmd1': "-L", 'cmd2': "--leetlevel",
 #                                "guitext": "",
 #                                "help": "Not implemented (does nothing)"})
+
+    def __getitem__(self, attr):
+        return self.__getattribute__(attr)
 
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""

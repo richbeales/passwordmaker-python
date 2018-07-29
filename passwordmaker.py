@@ -37,68 +37,100 @@
 
   Can be used both on the command-line and with a GUI based on TKinter
 """
-import sys
+
 import optparse
-
-import attr
-
-from pwmlib import PWM, PWM_Settings, PWM_Error
+import sys
 
 try:
     import tkinter as tk
 except ImportError:
     tk = None
 
+import attr
 
-class SettingBinderBase(object):
-    """Mixin, do not subclass"""
+from pwmlib import PWM, PWM_Settings, PWM_Error
 
 
-class Entry(tk.Entry, SettingBinderBase):
-    """Entry widget that binds it self to a setting"""
+class TextWidget(tk.Entry):
+    """Text entry widget
 
-    def __init__(self, parent, setting_name, *args, **kwargs):
-        self.background = parent.background
-        self.settings = parent.settings
-        self.setting_name = setting_name
-        self.type_converter = self._get_type_converter()
+    Interfaces: get, set
 
-        tk.Entry.__init__(self, parent, *args, **kwargs)
+    """
 
-        self.bind("<Key>", self.evaluate)
-        self.bind("<BackSpace>", self.evaluate)
+    def set(self, value):
+        """Sets current text"""
 
-    def _get_type_converter(self):
-        """Determines target type from validator"""
+        self.delete(0, "end")
+        self.insert(0, value)
 
-        a = attr.fields(PWM_Settings).__getattribute__(self.setting_name)
-        validator = a.validator
-        if validator == PWM_Settings.str_val:
-            return str
-        elif validator == PWM_Settings.int_val:
-            return int
-        elif validator == PWM_Settings.bool_val:
-            return bool
-        else:
-            raise TypeError("Unknown validator type {}.".format(validator))
 
-    def evaluate(self, event):
-        if event.keycode == 22:  # Backspace
-            val = event.widget.get()[:-1]
-        elif event.keycode == 23:  # Tab
-            val = event.widget.get()
-        else:
-            val = event.widget.get() + event.char
-        try:
-            cval = self.type_converter(val)
-            self.settings.__setattr__(self.setting_name, cval)
-            self.config(background=self.background)
-        except ValueError:
-            self.config(background="red")
-        print(self.settings)
+class PasswordWidget(TextWidget):
+    """Password entry widget
+
+    Interfaces: get, set
+
+    """
+
+    def __init__(self, parent, *args, **kwargs):
+        kwargs.update({'show': "*"})
+        super(PasswordWidget, self).__init__(parent, *args, **kwargs)
+
+
+class IntWidget(tk.Spinbox):
+    """Spinbox widget for Integers
+
+    Interfaces: get, set
+
+    """
+
+    def __init__(self, parent, *args, **kwargs):
+        kwargs.update({'from_': 1, "to": 128})
+        super(IntWidget, self).__init__(parent, *args, **kwargs)
+
+    def get(self):
+        return int(super(IntWidget, self).get())
+
+    def set(self, value):
+        """Sets current text"""
+
+        self.delete(0, "end")
+        self.insert(0, value)
+
+
+class AlgorithmWidget(tk.OptionMenu):
+    """OptionMenu widget for Algorithms
+
+    Interfaces: get, set
+
+    """
+
+    def __init__(self, parent, *args, **kwargs):
+        self.alg = tk.StringVar(parent)
+        super(AlgorithmWidget, self).__init__(parent, self.alg, "",
+                                              *PWM.ALGORITHMS)
+
+    def get(self):
+        """Returns the current algorithm as string"""
+
+        return self.alg.get()
+
+    def set(self, value):
+        """Sets current algorithm"""
+
+        assert value in PWM.ALGORITHMS
+        self.alg.set(value)
 
 
 class Application(tk.Frame):
+    """Main application window class"""
+
+    type2widget = {
+        "str": TextWidget,
+        "pwd": PasswordWidget,
+        "int": IntWidget,
+        "alg": AlgorithmWidget,
+    }
 
     def __init__(self, root=None):
         self.root = root
@@ -111,14 +143,6 @@ class Application(tk.Frame):
         self.create_widgets()
         self.layout()
 
-    def on_optionmenu(self, event):
-        """Algorithm option selected"""
-
-        self.settings.Algorithm = self.alg.get()
-
-    def on_len_spinbox(self):
-        self.settings.Length = int(self.len_spinbox.get())
-
     def create_widgets(self):
 
         # Widgets
@@ -130,30 +154,9 @@ class Application(tk.Frame):
             self.labels.append(tk.Label(self, justify="left",
                                         text=setting.metadata["guitext"]))
 
-            if setting.name == "MasterPass":
-                self.entry_widgets.append(Entry(self, setting.name, show="*"))
-                val = self.settings.__getattribute__(setting.name)
-                self.entry_widgets[-1].insert(0, val)
-
-            elif setting.name == "Algorithm":
-                self.alg = tk.StringVar(self)
-                self.alg.set(self.settings.Algorithm)
-                valid_algs = tuple(self.PWmaker.valid_algs)
-                option_menu = tk.OptionMenu(self, self.alg, *valid_algs,
-                                            command=self.on_optionmenu)
-                self.entry_widgets.append(option_menu)
-            elif setting.name == "Length":
-                self.len_spinbox = tk.Spinbox(self, from_=8, to=128,
-                                              state='readonly',
-                                              command=self.on_len_spinbox)
-                self.entry_widgets.append(self.len_spinbox)
-                self.entry_widgets[-1].delete(0, "end")
-                self.entry_widgets[-1].insert(0, self.settings.Length)
-            else:
-                self.entry_widgets.append(Entry(self, setting.name))
-                val = self.settings.__getattribute__(setting.name)
-                self.entry_widgets[-1].insert(0, val)
-                print(val)
+            widget = self.type2widget[setting.type](self)
+            widget.set(self.settings[setting.name])
+            self.entry_widgets.append(widget)
 
         # Buttons
 
@@ -192,14 +195,29 @@ class Application(tk.Frame):
         self.passwd_label.grid(row=i+3, column=0)
         self.passwd_text.grid(row=i+3, column=1, columnspan=2, sticky="nsew")
 
+    def update_settings(self):
+        """Updates self.settings from entry widget values"""
+
+        attr_fields = attr.fields(PWM_Settings)
+        for setting, widget in zip(attr_fields, self.entry_widgets):
+            self.settings.__setattr__(setting.name, widget.get())
+
     def save(self):
+        """Saves settings to json file"""
+
+        self.update_settings()
         self.settings.save()
 
     def load(self):
+        """Loads settings from json file"""
+
         self.settings.load()
         self.create_widgets()
 
     def generate(self):
+        """Generates and prints password and copies it to the clipboard"""
+
+        self.update_settings()
         self.generate_button.flash()
         try:
             pw = self.PWmaker.generatepasswordfrom(self.settings)
@@ -213,7 +231,10 @@ class Application(tk.Frame):
         self.clipboard_append(pw)
         print(pw)
 
+
 def gui():
+    """Run application in GUI"""
+
     root = tk.Tk()
     app = Application(root=root)
     app.master.title("PasswordMaker")
@@ -221,9 +242,23 @@ def gui():
 
 
 def cmd():
+    """Run application in the command line"""
+
+    def update_settings(options, settings):
+        """Updates self.settings from entry widget values"""
+
+        for setting in attr.fields(PWM_Settings):
+            val = getattr(options, setting.name)
+            if setting.name == "URL":
+                val += options.Username + options.Modifier
+            if setting.name in ("LeetLvl", "Length"):
+                val = int(val)
+            if setting.name == "LeetLvl":
+                val -= 1
+            settings.__setattr__(setting.name, val)
+
     usage = "Usage: %prog [options]"
     settings = PWM_Settings()
-    settings.load()
     parser = optparse.OptionParser(usage=usage)
 
     for setting in attr.fields(PWM_Settings):
@@ -235,23 +270,15 @@ def cmd():
         parser.add_option(cmd1, cmd2, dest=dest, default=default, help=__help)
 
     options, args = parser.parse_args()
+
     if options.MasterPass == "":
         import getpass
         options.MasterPass = getpass.getpass("Master password: ")
 
-    PWmaker = PWM()
+    update_settings(options, settings)
 
-    gen_pwd = PWmaker.generatepassword
-    print(gen_pwd(options.Algorithm,
-                  options.MasterPass,
-                  options.URL + options.Username + options.Modifier,
-                  options.UseLeet,
-                  options.LeetLvl - 1,
-                  options.Length,
-                  options.CharacterSet,
-                  options.Prefix,
-                  options.Suffix,
-                  ))
+    pwm = PWM()
+    print(pwm.generatepasswordfrom(settings))
 
 
 # Main
