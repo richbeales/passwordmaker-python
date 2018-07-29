@@ -43,12 +43,13 @@ import sys
 
 try:
     import tkinter as tk
+    from tkinter import simpledialog
 except ImportError:
     tk = None
 
 import attr
 
-from pwmlib import PWM, PWM_Settings, PWM_Error
+from pwmlib import PWM, PWM_SettingsList, PWM_Settings, PWM_Error
 
 
 class TextWidget(tk.Entry):
@@ -138,10 +139,13 @@ class Application(tk.Frame):
         tk.Frame.__init__(self, root)
         self.background = root.cget("background")
 
-        self.settings = PWM_Settings()
+        self.settings_list = PWM_SettingsList()
+        self.settings = self.settings_list.get_pwm_settings()
 
         self.create_widgets()
         self.layout()
+
+        self.load()
 
     def create_widgets(self):
         """Creates all widgets in main window"""
@@ -166,6 +170,16 @@ class Application(tk.Frame):
         self.load_button = tk.Button(self, text="Load", command=self.load)
         self.save_button = tk.Button(self, text="Save", command=self.save)
         self.passwd_label = tk.Label(self, justify="left", text="Password")
+        self.listbox_label = tk.Label(self, justify="left", text="Settings")
+        self.listbox = tk.Listbox(self)
+        self.listbox .bind('<<ListboxSelect>>', self.on_listbox)
+        self.listbox.insert("end", "default")
+        self.listbox.select_set(0)
+        self.new_setting_button = tk.Button(self, text="+",
+                                            command=self.new_setting)
+        self.delete_setting_button = tk.Button(self, text="-",
+                                               command=self.del_setting)
+
         self.passwd_text = tk.Entry(self, fg="blue")
 
     def layout(self):
@@ -193,8 +207,15 @@ class Application(tk.Frame):
                               sticky="we")
         self.save_button.grid(row=i+2, column=2, columnspan=1, pady=5,
                               sticky="we")
-        self.passwd_label.grid(row=i+3, column=0)
-        self.passwd_text.grid(row=i+3, column=1, columnspan=2, sticky="nsew")
+        self.listbox_label.grid(row=i+3, column=0, sticky="nw", padx=5, pady=2)
+        self.listbox.grid(row=i+3, rowspan=3, column=1, columnspan=2,
+                          sticky="nsew")
+        self.new_setting_button.grid(row=i+4, column=0, sticky="n", padx=5,
+                                     pady=2)
+        self.delete_setting_button.grid(row=i+5, column=0, sticky="n",
+                                        padx=5, pady=2)
+        self.passwd_label.grid(row=i+6, column=0, sticky="w", padx=5, pady=2)
+        self.passwd_text.grid(row=i+6, column=1, columnspan=2, sticky="nsew")
 
     def update_settings(self):
         """Updates self.settings from entry widget values"""
@@ -203,20 +224,77 @@ class Application(tk.Frame):
         for setting, widget in zip(attr_fields, self.entry_widgets):
             self.settings.__setattr__(setting.name, widget.get())
 
-    def save(self):
-        """Saves settings to json file"""
+    def update_widgets(self):
+        """Updates widgets from current self.settings"""
 
-        self.update_settings()
-        self.settings.save()
-
-    def load(self):
-        """Loads settings from json file"""
-
-        self.settings.load()
+        self.settings = self.settings_list.get_pwm_settings()
 
         for setting, widget in zip(attr.fields(PWM_Settings),
                                    self.entry_widgets):
             widget.set(self.settings[setting.name])
+
+    def update_listbox(self):
+        """Updates listbox from self.settings_list"""
+
+        self.listbox.delete(0, "end")
+        for pwm_name in self.settings_list.pwm_names:
+            self.listbox.insert("end", pwm_name)
+            self.listbox.select_set(0)
+
+    def save(self):
+        """Saves settings to json file"""
+
+        self.update_settings()
+        self.settings_list.save()
+
+    def load(self):
+        """Loads settings from json file"""
+
+        self.settings_list.load()
+
+        self.update_listbox()
+        self.update_widgets()
+
+    def on_listbox(self, event):
+        self.update_settings()
+
+        widget = event.widget
+        index = int(widget.curselection()[0])
+        value = widget.get(index)
+
+        self.settings_list.current = value
+        self.update_widgets()
+
+    def new_setting(self):
+        """Adds pwm setting to self.settings_list"""
+
+        name = None
+        while name is None or not name or name in self.settings_list.pwm_names:
+            name = simpledialog.askstring("Create new settings set", "Name")
+            if name is None:
+                return
+
+        self.settings_list.pwm_names.append(name)
+        self.settings_list.pwms.append(PWM_Settings())
+
+        self.update_listbox()
+
+    def del_setting(self):
+        """deletes setting from listbox and fromk settings_list"""
+
+        index = int(self.listbox.curselection()[0])
+        value = self.listbox.get(index)
+        if value == "default":
+            return
+
+        pwm_idx = self.settings_list.pwm_names.index(value)
+        self.settings_list.pwm_names.pop(pwm_idx)
+        self.settings_list.pwms.pop(pwm_idx)
+        if self.settings_list.current == value:
+            self.settings_list.current = "default"
+
+        self.listbox.delete(index)
+        self.listbox.select_set(0)
 
     def generate(self):
         """Generates and prints password and copies it to the clipboard"""

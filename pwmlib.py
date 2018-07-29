@@ -35,6 +35,7 @@
 
 """
 
+import os
 import sys
 import hmac
 import json
@@ -377,3 +378,57 @@ class PWM_Settings(object):
 
         with open(filepath, 'w') as outfile:
             json.dump(attr_dict, outfile, sort_keys=True, indent=4)
+
+
+@attr.s
+class PWM_SettingsList(object):
+    """Stores a list of PWM_Settings"""
+
+    current = attr.ib(default="default")
+    pwm_names = attr.ib(default=["default"])
+    pwms = attr.ib(default=[PWM_Settings()])
+
+    def get_pwm_settings(self):
+        """Returns current PWM_Settings"""
+
+        pwm_idx = self.pwm_names.index(self.current)
+        return self.pwms[pwm_idx]
+
+    def load(self, directory="."):
+        """Loads all PWM_setting files from current directory"""
+
+        filenames = [f for f in os.listdir(directory)
+                     if f.endswith(".setting")]
+        filenames.sort()
+        pwm_names = [f[4:-8] for f in filenames]
+
+        self.pwm_names = []
+        self.pwms = []
+        for pwm_name, filename in zip(pwm_names, filenames):
+            pwm = PWM_Settings()
+            pwm.load(filename)
+
+            if pwm_name == "default":
+                self.pwm_names.insert(0, pwm_name)
+                self.pwms.insert(0, pwm)
+            else:
+                self.pwm_names.append(pwm_name)
+                self.pwms.append(pwm)
+        if "default" in pwm_names:
+            self.current = "default"
+        else:
+            self.current = self.pwm_names[0]
+
+    def save(self, directory="."):
+        """Saves all PWM_setting files from current directory"""
+
+        for name, pwm in zip(self.pwm_names, self.pwms):
+            pwm.save(filepath="pwm."+name+".setting")
+
+        filenames = [f for f in os.listdir(directory)
+                     if f.endswith(".setting")]
+        pwm_names = [f[4:-8] for f in filenames]
+
+        for pwm_name in pwm_names:
+            if pwm_name not in self.pwm_names:
+                os.remove("pwm."+pwm_name+".setting")
