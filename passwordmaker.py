@@ -153,6 +153,7 @@ class Application(tk.Frame):
                 self.entry_widgets.append(Entry(self, setting.name))
                 val = self.settings.__getattribute__(setting.name)
                 self.entry_widgets[-1].insert(0, val)
+                print(val)
 
         # Buttons
 
@@ -192,14 +193,11 @@ class Application(tk.Frame):
         self.passwd_text.grid(row=i+3, column=1, columnspan=2, sticky="nsew")
 
     def save(self):
-        self.settings = self.getsettings()
-        self.settings.MasterPass = ''  # Blank this out when saving for now
         self.settings.save()
 
     def load(self):
-        self.settings = self.getsettings()
         self.settings.load()
-        self.createWidgets()
+        self.create_widgets()
 
     def generate(self):
         self.generate_button.flash()
