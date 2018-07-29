@@ -104,13 +104,18 @@ class PWM(object):
         hashclass = PWM_HashUtils()
         password = ''
         count = 0
+
+        key = key.encode("utf-8")
+        data = data.encode("utf-8")
+
         tkey = key  # Copy of the master password so we don't interfere with it
         dat = data
         while len(password) < passwordLength and count < 1000:
             if count == 0:
                 key = tkey
             else:
-                key = "%s\n%s" % (tkey, count)
+                key = "{}\n{}".format(tkey, count).encode("utf-8")
+
             # For non-hmac algorithms, the key is master pw and url
             # concatenated
             if hashAlgorithm.count("hmac") == 0:
@@ -172,12 +177,10 @@ class PWM_HashUtils:
             except TypeError:  # Python 2.x
                 dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
 
-        """
-        Repeatedly perform a long division. The binary array forms the
-        dividend, the length of the encoding is the divisor. Once computed,
-        the quotient forms the dividend for the next step. We stop when the
-        dividend is zero. All remainders are stored for later use.
-        """
+        # Repeatedly perform a long division. The binary array forms the
+        # dividend, the length of the encoding is the divisor. Once computed,
+        # the quotient forms the dividend for the next step. We stop when the
+        # dividend is zero. All remainders are stored for later use.
 
         if trim:
             while len(dividend) > 0:
@@ -214,7 +217,6 @@ class PWM_HashUtils:
         return output
 
     def any_md5(self, s, e, t):
-        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
             __hash = hashlib.md5(s).digest()
@@ -233,7 +235,6 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha1(self, s, e, t):
-        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
             __hash = hashlib.sha1(s).digest()
@@ -252,7 +253,6 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_sha256(self, s, e, t):
-        s = s.encode("utf-8")
         if float(sys.version[:3]) >= 2.5:
             import hashlib
             __hash = hashlib.sha256(s).digest()
@@ -271,7 +271,6 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
     def any_md4(self, s, e, t):
-        s = s.encode("utf-8")
         from Crypto.Hash import MD4
         return self.rstr2any(MD4.new(s).digest(), e, t)
 
@@ -280,7 +279,6 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, Crypto.Hash.MD4).digest(), e, t)
 
     def any_rmd160(self, s, e, t):
-        s = s.encode("utf-8")
         from Crypto.Hash import RIPEMD
         return self.rstr2any(RIPEMD.new(s).digest(), e, t)
 

@@ -38,7 +38,7 @@
   Can be used both on the command-line and with a GUI based on TKinter
 """
 
-import optparse
+import argparse
 import sys
 
 try:
@@ -105,7 +105,7 @@ class AlgorithmWidget(tk.OptionMenu):
 
     """
 
-    def __init__(self, parent, *args, **kwargs):
+    def __init__(self, parent):
         self.alg = tk.StringVar(parent)
         super(AlgorithmWidget, self).__init__(parent, self.alg, "",
                                               *PWM.ALGORITHMS)
@@ -134,7 +134,7 @@ class Application(tk.Frame):
 
     def __init__(self, root=None):
         self.root = root
-        self.PWmaker = PWM()
+        self.pwmaker = PWM()
         tk.Frame.__init__(self, root)
         self.background = root.cget("background")
 
@@ -144,8 +144,9 @@ class Application(tk.Frame):
         self.layout()
 
     def create_widgets(self):
+        """Creates all widgets in main window"""
 
-        # Widgets
+        # Entry widgets
 
         self.labels = []
         self.entry_widgets = []
@@ -220,16 +221,15 @@ class Application(tk.Frame):
         self.update_settings()
         self.generate_button.flash()
         try:
-            pw = self.PWmaker.generatepasswordfrom(self.settings)
-        except PWM_Error as e:
-            pw = str(e)
+            pwd = self.pwmaker.generatepasswordfrom(self.settings)
+        except PWM_Error as err:
+            pwd = str(err)
         current_passwd = self.passwd_text.get()
-        if len(current_passwd) > 0:
+        if current_passwd:
             self.passwd_text.delete(0, len(current_passwd))
-        self.passwd_text.insert(0, pw)
+        self.passwd_text.insert(0, pwd)
         self.clipboard_clear()
-        self.clipboard_append(pw)
-        print(pw)
+        self.clipboard_append(pwd)
 
 
 def gui():
@@ -244,6 +244,22 @@ def gui():
 def cmd():
     """Run application in the command line"""
 
+    def get_parser():
+        """Returns command line argument parser"""
+
+        description = "Usage: %prog [options]"
+        parser = argparse.ArgumentParser(description=description)
+
+        for setting in attr.fields(PWM_Settings):
+            cmd1 = setting.metadata["cmd1"]
+            cmd2 = setting.metadata["cmd2"]
+            dest = setting.name
+            default = setting.default
+            __help = setting.metadata["help"]
+            parser.add_argument(cmd1, cmd2, dest=dest, default=default,
+                                help=__help)
+        return parser
+
     def update_settings(options, settings):
         """Updates self.settings from entry widget values"""
 
@@ -257,33 +273,31 @@ def cmd():
                 val -= 1
             settings.__setattr__(setting.name, val)
 
-    usage = "Usage: %prog [options]"
-    settings = PWM_Settings()
-    parser = optparse.OptionParser(usage=usage)
+    parser = get_parser()
+    args = parser.parse_args()
 
-    for setting in attr.fields(PWM_Settings):
-        cmd1 = setting.metadata["cmd1"]
-        cmd2 = setting.metadata["cmd2"]
-        dest = setting.name
-        default = setting.default
-        __help = setting.metadata["help"]
-        parser.add_option(cmd1, cmd2, dest=dest, default=default, help=__help)
+    args = parser.parse_args()
 
-    options, args = parser.parse_args()
-
-    if options.MasterPass == "":
+    if args.MasterPass == "":
         import getpass
-        options.MasterPass = getpass.getpass("Master password: ")
+        args.MasterPass = getpass.getpass("Master password: ")
 
-    update_settings(options, settings)
+    settings = PWM_Settings()
+    update_settings(args, settings)
 
     pwm = PWM()
     print(pwm.generatepasswordfrom(settings))
 
 
-# Main
-if __name__ == "__main__":
+def main():
+    """Main application that chooses between gui and non gui execution"""
+
     if len(sys.argv) == 1:
         gui()
     else:
         cmd()
+
+
+# Main
+if __name__ == "__main__":
+    main()
