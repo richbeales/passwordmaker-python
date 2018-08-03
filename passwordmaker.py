@@ -259,6 +259,9 @@ class Application(tk.Frame):
         self.update_settings()
 
         widget = event.widget
+        if not widget.curselection():
+            # Empty cell
+            return
         index = int(widget.curselection()[0])
         value = widget.get(index)
 
