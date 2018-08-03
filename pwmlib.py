@@ -111,7 +111,9 @@ class PWM_HashUtils:
 
     def __init__(self, algorithm):
         if algorithm not in self.ALGORITHMS:
-            raise ValueError("{} not in {}".format(algorithm, self.ALGORITHMS))
+            msg = "Unknown algorithm: {}. Valid algorithms: {}"
+            valid_algs = ", ".join(self.ALGORITHMS)
+            raise ValueError(msg.format(algorithm, valid_algs))
 
         hash_func_name = self.ALGORITHM_2_HASH_FUNC[algorithm]
         self.hash_func = getattr(self, hash_func_name)
@@ -251,7 +253,7 @@ class PWM(object):
                                      settings.Suffix)
 
     # L33t not used here
-    def generatepassword(self, hash_algorithm, key, data, passwordLength,
+    def generatepassword(self, hash_algorithm, key, data, password_length,
                          charset, prefix="", suffix=""):
 
         # Never *ever, ever* allow the charset's length<2 else
@@ -261,17 +263,9 @@ class PWM(object):
             msg = "The charset {} contains less than 2 characters."
             raise ValueError(msg.format(charset))
 
-        # Check for validity of algorithm
-
-        if hash_algorithm not in PWM.ALGORITHMS:
-            msg = "Unknown algorithm: {}. Valid algorithms: {}"
-            valid_algs = ", ".join(PWM.ALGORITHMS)
-            raise PWM_Error(msg.format(hash_algorithm, valid_algs))
-
         # apply the algorithm
         hash_func = PWM_HashUtils(hash_algorithm).hash_func
-        password = ''
-        count = 0
+        hash_uses_hmac = hash_algorithm.count("hmac") > 0
 
         key = key.encode("utf-8")
         data = data.encode("utf-8")
@@ -279,28 +273,30 @@ class PWM(object):
         tkey = key  # Copy of the master password so we don't interfere with it
         dat = data
 
-        while len(password) < passwordLength and count < 1000:
-            if count == 0:
-                key = tkey
-            else:
-                key = tkey + b"\n" + str(count).encode("utf-8")
+        password = ''
+
+        for i in range(1000):
+            if i:
+                key = tkey + b"\n" + str(i).encode("utf-8")
 
             # For non-hmac algorithms, the key is master pw and url
             # concatenated
 
-            if hash_algorithm.count("hmac") == 0:
-                dat = key+data
-                password += hash_func(dat, charset)
-            else:
+            if hash_uses_hmac:
                 password += hash_func(key, dat, charset)
-            count += 1
+            else:
+                dat = key + data
+                password += hash_func(dat, charset)
+
+            if len(password) >= password_length:
+                break
 
         if prefix:
             password = prefix + password
         if suffix:
-            password = password[:passwordLength-len(suffix)] + suffix
+            password = password[:password_length-len(suffix)] + suffix
 
-        return password[:passwordLength]
+        return password[:password_length]
 
 
 @attr.s
