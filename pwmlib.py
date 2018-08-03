@@ -66,104 +66,56 @@ class PWM_Error(Exception):
     """Password Maker Error class"""
 
 
-class PWM(object):
-    """Main PasswordMaker class used for generating passwords"""
-
-    FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
-                   "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
-
-    _ALGORITHMS = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
-    if HAS_HASHLIB:
-        _ALGORITHMS += ["sha256", "hmac-sha256"]
-    if HAS_CRYPTO:
-        _ALGORITHMS += ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160",
-                        "hmac-rmd160"]
-    ALGORITHMS = tuple(set(_ALGORITHMS))
-
-    def generatepasswordfrom(self, settings):
-        concat_url = settings.URL + settings.Username + settings.Modifier
-        return self.generatepassword(settings.Algorithm,
-                                     settings.MasterPass,
-                                     concat_url,
-                                     settings.Length,
-                                     settings.CharacterSet,
-                                     settings.Prefix,
-                                     settings.Suffix)
-
-    # L33t not used here
-    def generatepassword(self, hashAlgorithm, key, data, passwordLength,
-                         charset, prefix="", suffix=""):
-
-        # Never *ever, ever* allow the charset's length<2 else
-        # the hash algorithms will run indefinitely
-
-        if len(charset) < 2:
-            msg = "The charset {} contains less than 2 characters."
-            raise ValueError(msg.format(charset))
-
-        # Check for validity of algorithm
-
-        if hashAlgorithm not in PWM.ALGORITHMS:
-            alg_err_msg = "Unknown or misspelled algorithm: {}. " + \
-                          "Valid algorithms: {}"
-            valid_algs = ", ".join(PWM.ALGORITHMS)
-            raise PWM_Error(alg_err_msg.format(hashAlgorithm, valid_algs))
-
-        # apply the algorithm
-        hashclass = PWM_HashUtils()
-        password = ''
-        count = 0
-
-        key = key.encode("utf-8")
-        data = data.encode("utf-8")
-
-        tkey = key  # Copy of the master password so we don't interfere with it
-        dat = data
-
-        while len(password) < passwordLength and count < 1000:
-            if count == 0:
-                key = tkey
-            else:
-                key = "{}\n{}".format(tkey, count).encode("utf-8")
-
-            # For non-hmac algorithms, the key is master pw and url
-            # concatenated
-            if hashAlgorithm.count("hmac") == 0:
-                dat = key+data
-            if hashAlgorithm == "sha256":
-                password += hashclass.any_sha256(dat, charset)
-            elif hashAlgorithm == "hmac-sha256":
-                password += hashclass.any_hmac_sha256(key, dat, charset)
-            elif hashAlgorithm == "sha1":
-                password += hashclass.any_sha1(dat, charset)
-            elif hashAlgorithm == "hmac-sha1":
-                password += hashclass.any_hmac_sha1(key, dat, charset)
-            elif hashAlgorithm == "md4":
-                password += hashclass.any_md4(dat, charset)
-            elif hashAlgorithm == "hmac-md4":
-                password += hashclass.any_hmac_md4(key, dat, charset)
-            elif hashAlgorithm == "md5":
-                password += hashclass.any_md5(dat, charset)
-            elif hashAlgorithm == "hmac-md5":
-                password += hashclass.any_hmac_md5(key, dat, charset)
-            elif hashAlgorithm == "rmd160":
-                password += hashclass.any_rmd160(dat, charset)
-            elif hashAlgorithm == "hmac-rmd160":
-                password += hashclass.any_hmac_rmd160(key, dat, charset)
-            else:
-                valid_algs = ", ".join(PWM.ALGORITHMS)
-                raise PWM_Error(alg_err_msg.format(hashAlgorithm, valid_algs))
-            count += 1
-
-        if prefix:
-            password = prefix + password
-        if suffix:
-            password = password[:passwordLength-len(suffix)] + suffix
-
-        return password[:passwordLength]
-
-
 class PWM_HashUtils:
+    """Provides hash functions for the passwordmaker main class
+
+    Parameters
+    ----------
+
+    * algorithm: String
+    \tOne valid algorithm out of "md5", "hmac-md5", "sha1", "hmac-sha1"
+    \tIf hashlib is present also out of "sha256", "hmac-sha256"
+    \tIf pycrypto is present also out of "md4", "hmac-md4", "sha256",
+    \t"hmac-sha256", "rmd160", "hmac-rmd160"
+
+    """
+
+    ALGORITHM_2_HASH_FUNC = {
+        "md5": "any_md5",
+        "hmac-md5": "any_hmac_md5",
+        "sha1": "any_sha1",
+        "hmac-sha1": "any_hmac_sha1",
+    }
+
+    HASHLIB_ALGORITHM_2_HASH_FUNC = {
+        "sha256": "any_sha256",
+        "hmac-sha256": "any_hmac_sha1",
+    }
+
+    CRYPTO_ALGORITHM_2_HASH_FUNC = {
+        "md4": "any_md4",
+        "hmac-md4": "any_hmac_md4",
+        "sha256": "any_sha256",
+        "hmac-sha256": "any_hmac_sha256",
+        "rmd160": "any_rmd160",
+        "hmac-rmd160": "any_hmac_rmd160",
+    }
+
+    if HAS_HASHLIB:
+        ALGORITHM_2_HASH_FUNC.update(HASHLIB_ALGORITHM_2_HASH_FUNC)
+
+    if HAS_CRYPTO:
+        ALGORITHM_2_HASH_FUNC.update(CRYPTO_ALGORITHM_2_HASH_FUNC)
+
+    ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
+
+    def __init__(self, algorithm):
+        if algorithm not in self.ALGORITHMS:
+            raise ValueError("{} not in {}".format(algorithm, self.ALGORITHMS))
+
+        hash_func_name = self.ALGORITHM_2_HASH_FUNC[algorithm]
+        self.hash_func = getattr(self, hash_func_name)
+
     def rstr2any(self, inp, encoding, trim=True):
         """Convert a raw string to an arbitrary string encoding.
 
@@ -278,6 +230,77 @@ class PWM_HashUtils:
 
     def any_hmac_rmd160(self, k, d, e, t=True):
         return self.rstr2any(hmac.new(k, d, RIPEMD).digest(), e, t)
+
+
+class PWM(object):
+    """Main PasswordMaker class used for generating passwords"""
+
+    FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
+                   "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
+
+    ALGORITHMS = PWM_HashUtils.ALGORITHMS
+
+    def generatepasswordfrom(self, settings):
+        concat_url = settings.URL + settings.Username + settings.Modifier
+        return self.generatepassword(settings.Algorithm,
+                                     settings.MasterPass,
+                                     concat_url,
+                                     settings.Length,
+                                     settings.CharacterSet,
+                                     settings.Prefix,
+                                     settings.Suffix)
+
+    # L33t not used here
+    def generatepassword(self, hash_algorithm, key, data, passwordLength,
+                         charset, prefix="", suffix=""):
+
+        # Never *ever, ever* allow the charset's length<2 else
+        # the hash algorithms will run indefinitely
+
+        if len(charset) < 2:
+            msg = "The charset {} contains less than 2 characters."
+            raise ValueError(msg.format(charset))
+
+        # Check for validity of algorithm
+
+        if hash_algorithm not in PWM.ALGORITHMS:
+            msg = "Unknown algorithm: {}. Valid algorithms: {}"
+            valid_algs = ", ".join(PWM.ALGORITHMS)
+            raise PWM_Error(msg.format(hash_algorithm, valid_algs))
+
+        # apply the algorithm
+        hash_func = PWM_HashUtils(hash_algorithm).hash_func
+        password = ''
+        count = 0
+
+        key = key.encode("utf-8")
+        data = data.encode("utf-8")
+
+        tkey = key  # Copy of the master password so we don't interfere with it
+        dat = data
+
+        while len(password) < passwordLength and count < 1000:
+            if count == 0:
+                key = tkey
+            else:
+                key = tkey + b"\n" + str(count).encode("utf-8")
+
+            # For non-hmac algorithms, the key is master pw and url
+            # concatenated
+
+            if hash_algorithm.count("hmac") == 0:
+                dat = key+data
+                password += hash_func(dat, charset)
+            else:
+                password += hash_func(key, dat, charset)
+            count += 1
+
+        if prefix:
+            password = prefix + password
+        if suffix:
+            password = password[:passwordLength-len(suffix)] + suffix
+
+        return password[:passwordLength]
 
 
 @attr.s
