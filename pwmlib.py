@@ -93,25 +93,21 @@ class PWM(object):
     # L33t not used here
     def generatepassword(self, hashAlgorithm, key, data, passwordLength,
                          charset, prefix="", suffix=""):
+
         # Never *ever, ever* allow the charset's length<2 else
         # the hash algorithms will run indefinitely
 
         if len(charset) < 2:
-            return ""
-        alg = hashAlgorithm.split("_")
-        if len(alg) > 1 and alg[1] == "v6":
-            trim = False
-            charset = '0123456789abcdef'
-        else:
-            trim = True
-            hashAlgorithm = alg[0]
+            msg = "The charset {} contains less than 2 characters."
+            raise ValueError(msg.format(charset))
 
         # Check for validity of algorithm
-        algo_error_msg = "Unknown or misspelled algorithm: {}. " + \
-                         "Valid algorithms: {}"
+
         if hashAlgorithm not in PWM.ALGORITHMS:
+            alg_err_msg = "Unknown or misspelled algorithm: {}. " + \
+                          "Valid algorithms: {}"
             valid_algs = ", ".join(PWM.ALGORITHMS)
-            raise PWM_Error(algo_error_msg.format(hashAlgorithm, valid_algs))
+            raise PWM_Error(alg_err_msg.format(hashAlgorithm, valid_algs))
 
         # apply the algorithm
         hashclass = PWM_HashUtils()
@@ -123,6 +119,7 @@ class PWM(object):
 
         tkey = key  # Copy of the master password so we don't interfere with it
         dat = data
+
         while len(password) < passwordLength and count < 1000:
             if count == 0:
                 key = tkey
@@ -134,29 +131,28 @@ class PWM(object):
             if hashAlgorithm.count("hmac") == 0:
                 dat = key+data
             if hashAlgorithm == "sha256":
-                password += hashclass.any_sha256(dat, charset, trim)
+                password += hashclass.any_sha256(dat, charset)
             elif hashAlgorithm == "hmac-sha256":
-                password += hashclass.any_hmac_sha256(key, dat, charset, trim)
+                password += hashclass.any_hmac_sha256(key, dat, charset)
             elif hashAlgorithm == "sha1":
-                password += hashclass.any_sha1(dat, charset, trim)
+                password += hashclass.any_sha1(dat, charset)
             elif hashAlgorithm == "hmac-sha1":
-                password += hashclass.any_hmac_sha1(key, dat, charset, trim)
+                password += hashclass.any_hmac_sha1(key, dat, charset)
             elif hashAlgorithm == "md4":
-                password += hashclass.any_md4(dat, charset, trim)
+                password += hashclass.any_md4(dat, charset)
             elif hashAlgorithm == "hmac-md4":
-                password += hashclass.any_hmac_md4(key, dat, charset, trim)
+                password += hashclass.any_hmac_md4(key, dat, charset)
             elif hashAlgorithm == "md5":
-                password += hashclass.any_md5(dat, charset, trim)
+                password += hashclass.any_md5(dat, charset)
             elif hashAlgorithm == "hmac-md5":
-                password += hashclass.any_hmac_md5(key, dat, charset, trim)
+                password += hashclass.any_hmac_md5(key, dat, charset)
             elif hashAlgorithm == "rmd160":
-                password += hashclass.any_rmd160(dat, charset, trim)
+                password += hashclass.any_rmd160(dat, charset)
             elif hashAlgorithm == "hmac-rmd160":
-                password += hashclass.any_hmac_rmd160(key, dat, charset, trim)
+                password += hashclass.any_hmac_rmd160(key, dat, charset)
             else:
                 valid_algs = ", ".join(PWM.ALGORITHMS)
-                raise PWM_Error(algo_error_msg.format(hashAlgorithm,
-                                                      valid_algs))
+                raise PWM_Error(alg_err_msg.format(hashAlgorithm, valid_algs))
             count += 1
 
         if prefix:
@@ -229,58 +225,58 @@ class PWM_HashUtils:
 
         return output
 
-    def any_md5(self, s, e, t):
+    def any_md5(self, s, e, t=True):
         if HAS_HASHLIB:
             __hash = hashlib.md5(s).digest()
         else:
             __hash = md5.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
-    def any_hmac_md5(self, k, d, e, t):
+    def any_hmac_md5(self, k, d, e, t=True):
         if HAS_HASHLIB:
             hashfunc = hashlib.md5
         else:
             hashfunc = md5
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
-    def any_sha1(self, s, e, t):
+    def any_sha1(self, s, e, t=True):
         if HAS_HASHLIB:
             __hash = hashlib.sha1(s).digest()
         else:
             __hash = sha.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
-    def any_hmac_sha1(self, k, d, e, t):
+    def any_hmac_sha1(self, k, d, e, t=True):
         if HAS_HASHLIB:
             hashfunc = hashlib.sha1
         else:
             hashfunc = sha
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
-    def any_sha256(self, s, e, t):
+    def any_sha256(self, s, e, t=True):
         if HAS_HASHLIB:
             __hash = hashlib.sha256(s).digest()
         else:
             __hash = SHA256.new(s).digest()
         return self.rstr2any(__hash, e, t)
 
-    def any_hmac_sha256(self, k, d, e, t):
+    def any_hmac_sha256(self, k, d, e, t=True):
         if HAS_HASHLIB:
             hashfunc = hashlib.sha256
         else:
             hashfunc = SHA256
         return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
 
-    def any_md4(self, s, e, t):
+    def any_md4(self, s, e, t=True):
         return self.rstr2any(MD4.new(s).digest(), e, t)
 
-    def any_hmac_md4(self, k, d, e, t):
+    def any_hmac_md4(self, k, d, e, t=True):
         return self.rstr2any(hmac.new(k, d, MD4).digest(), e, t)
 
-    def any_rmd160(self, s, e, t):
+    def any_rmd160(self, s, e, t=True):
         return self.rstr2any(RIPEMD.new(s).digest(), e, t)
 
-    def any_hmac_rmd160(self, k, d, e, t):
+    def any_hmac_rmd160(self, k, d, e, t=True):
         return self.rstr2any(hmac.new(k, d, RIPEMD).digest(), e, t)
 
 
