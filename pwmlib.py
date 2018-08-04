@@ -41,10 +41,10 @@ Copyright (C):
     You should have received a copy of the GNU Lesser General Public License
     along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
 
-    This version should work with Python > 2.3 including Python 3.x.
-    The pycrypto module enables additional algorithms.
+This version should work with Python > 2.3 including Python 3.x.
+The pycrypto module enables additional algorithms.
 
-    It can be used both on the command-line and with a GUI based on TKinter.
+It can be used both on the command-line and with a GUI based on TKinter.
 
 """
 
