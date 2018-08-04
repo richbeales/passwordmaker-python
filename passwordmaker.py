@@ -267,6 +267,8 @@ class Application(tk.Frame):
         self.update_widgets()
 
     def on_listbox(self, event):
+        """Listbox event handler"""
+
         self.update_settings()
 
         widget = event.widget

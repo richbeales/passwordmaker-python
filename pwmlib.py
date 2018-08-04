@@ -110,10 +110,12 @@ if HAS_CRYPTO:
 
 ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
 
+LEET_OPTIONS = ["none", "before", "after", "both"]
+
 
 @attr.s
 class PwmHashUtils(object):
-    """Provides hash functions for the passwordmaker main class
+    """Provides hash functions for PasswordMaker
 
     Parameters
     ----------
@@ -140,6 +142,8 @@ class PwmHashUtils(object):
 
     @property
     def hash_func_wrapper(self):
+        """Returns hash_function wrapper that may be used for self.algorithm"""
+
         hash_func_name = ALGORITHM_2_HASH_FUNC[self.algorithm]
         return getattr(self, hash_func_name)
 
@@ -176,7 +180,7 @@ class PwmHashUtils(object):
         while len(dividend) < ceil(len(inp) / 2):
             dividend.append(0)
 
-        for i in range(len(dividend)):
+        for i, _ in enumerate(dividend):
             try:
                 dividend[i] = (inp[i * 2] << 8) | inp[i * 2 + 1]
             except TypeError:  # Python 2.x
@@ -287,8 +291,8 @@ class PwmSettings(object):
 
     int_val = attr.validators.instance_of(int)
     str_val = attr.validators.instance_of(str)
-    bool_val = attr.validators.instance_of(bool)
     algorithm_val = attr.validators.in_(ALGORITHMS)
+    leet_val = attr.validators.in_(LEET_OPTIONS)
 
     _url_metadata = {'cmd1': "-r", 'cmd2': "--url", "guitext": "URL",
                      "help": "URL (default blank)"}
@@ -324,7 +328,7 @@ class PwmSettings(object):
     _chr_metadata = {'cmd1': "-c", 'cmd2': "--charset",
                      "guitext": "Characters",
                      "help": "Characters to use in password (default "
-                             "[A-Za-z0-9])"}
+                             "[A-Za-z0-9`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./])"}
     CharacterSet = attr.ib(default=str(FULL_CHARSET), validator=str_val,
                            type="str", metadata=_chr_metadata)
 
@@ -338,20 +342,23 @@ class PwmSettings(object):
     Suffix = attr.ib(default="", validator=str_val, type="str",
                      metadata=_sfx_metadata)
 
-#    _useleet_metadata = {'cmd1': "-l", 'cmd2': "--leet", "guitext": "",
-#                         "help": "Not implemented (does nothing)"}
-#    UseLeet = attr.ib(default=False, validator=bool_val, type="bool",
-#                      metadata=_useleet_metadata)
+    _useleet_metadata = {'cmd1': "-l", 'cmd2': "--leet", "guitext": "Use leet",
+                         "help": "Use leet speech. <none|before|after|both>"
+                                 "(default: none)"}
+    UseLeet = attr.ib(default="none", validator=leet_val, type="str",
+                      metadata=_useleet_metadata)
 
-#    _leetlvl_metadata = {'cmd1': "-L", 'cmd2': "--leetlevel", "guitext": "",
-#                         "help": "Not implemented (does nothing)"}
-#    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
-#                      metadata=_leetlvl_metadata)
+    _leetlvl_metadata = {'cmd1': "-L", 'cmd2': "--leetlevel",
+                         "guitext": "Leet level",
+                         "help": "l33t level [1-9] (default 1)"}
+    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
+                      metadata=_leetlvl_metadata)
 
     def __getitem__(self, __attr):
         return self.__getattribute__(__attr)
 
-    def _get_attr_filters(self):
+    @staticmethod
+    def _get_attr_filters():
         """Returns attr filters that excludes MasterPass"""
 
         return attr.filters.exclude(attr.fields(PwmSettings).MasterPass)
@@ -427,6 +434,11 @@ class PwmSettingsList(object):
             else:
                 self.pwm_names.append(pwm_name)
                 self.pwms.append(pwm)
+
+        if not pwm_names:
+            self.pwm_names.append("default")
+            self.pwms.append(PwmSettings())
+
         if "default" in pwm_names:
             self.current = "default"
         else:
@@ -450,6 +462,72 @@ class PwmSettingsList(object):
 # Main PasswordMaker functions
 
 
+def get_leet_mapping(leet_level):
+    """Returns a leet mappings for given leet level
+
+    For levels not in [1, 9], an empty dict is returned.
+
+    Parameters
+    ----------
+    * leet_level: Integer in [1, 9]
+    \tLeet level.
+
+    """
+
+    # In leet_additional_mappings_per_level low level conversions are
+    # maintained at higher levels unless they are overridden.
+    # Conversions in the dicts always refer to the original character,
+    # i. e. not to converted ones.
+
+    leet_additional_mappings_per_level = [
+        {},
+        {"a": "4", "e": "3", "l": "1", "o": "0", "q": "9", "t": "7"},
+        {"i": "l", "s": "5", "z": "2"},
+        {"b": "8", "g": "6", "i": "'", "y": "'/"},
+        {"a": "@"},
+        {"b": "|3", "h": "#", "i": "!", "j": "7", "k": "|<", "p": "|>",
+         "r": "|2", "s": "$", "v": "\\/"},
+        {"d": "|)", "e": "&", "f": "|=", "j": ",|"},
+        {"c": "[", "m": "^^", "n": "^/", "p": "|*", "s": "5", "u": "(_)",
+         "w": "\\/\\/", "x": "><"},
+        {"b": "8", "c": "(", "h": "|-|", "j": "_|", "k": "|(", "m": "|\\/|",
+         "n": "|\\|", "o": "()", "p": "|>", "q": "(,)", "r": "|2", "s": "$",
+         "t": "|", "u": "|_|", "w": "\\^/", "x": ")(", "z": "\"/_"},
+        {"k": "|{", "l": "|_", "m": "/\\/\\"},
+    ]
+
+    leet_mapping = {}
+    for j in range(leet_level + 1):
+        leet_mapping.update(leet_additional_mappings_per_level[j])
+
+    return leet_mapping
+
+
+def leet(leet_level, message):
+    """Converts the string in message to l33t-speak
+
+    The l33t level is specified by leet_level.
+    l33t levels are 1-9 with 1 being the simplest form of l33t-speak and
+    9 being the most complex.
+
+    Note that _message_ is converted to lower-case if the l33t conversion is
+    performed. Using a _leetLevel_ <= 0 results in the original message
+    being returned.
+
+    """
+
+    leet_mapping = get_leet_mapping(leet_level)
+
+    leet_message = ""
+    for char in message:
+        try:
+            leet_message += leet_mapping[char]
+        except KeyError:
+            leet_message += char
+
+    return leet_message
+
+
 def generatepasswordfrom(settings):
     """Calls self.generatepassword with parameters from settings
 
@@ -468,11 +546,13 @@ def generatepasswordfrom(settings):
                             password_length=settings.Length,
                             charset=settings.CharacterSet,
                             prefix=settings.Prefix,
-                            suffix=settings.Suffix)
+                            suffix=settings.Suffix,
+                            use_leet=settings.UseLeet,
+                            leet_level=settings.LeetLvl)
 
 
 def generatepassword(hash_algorithm, key, data, password_length, charset,
-                     prefix="", suffix=""):
+                     prefix="", suffix="", use_leet="none", leet_level=0):
     """Generates PasswordMaker password
 
     Note: L33t ist not supported, yet.
@@ -494,6 +574,10 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
     \tPassword prefix
     * suffix: String (default: "")
     \tPassword suffix
+    * use_leet: String (default: "none")
+    \tUse leet speech. May be from ["none", "before", "after", "both"]
+    * leet_level: Integer (default: 0)
+    \tl33t level may be from [1-9]. Other values disable leet
 
     """
 
@@ -507,6 +591,13 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
     hash_func_wrapper = PwmHashUtils(hash_algorithm, charset).hash_func_wrapper
     hash_uses_hmac = hash_algorithm.count("hmac") > 0
 
+    # Apply l33t before the algorithm?
+    if use_leet in ("before", "both"):
+        key = leet(leet_level, key)
+        if hash_uses_hmac:
+            data = leet(leet_level, data)
+
+    # Ensure encoding to avoid Python3 issues
     key = key.encode("utf-8")
     data = data.encode("utf-8")
 
@@ -530,6 +621,10 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
 
         if len(password) >= password_length:
             break
+
+    # Apply l33t after the algorithm?
+    if use_leet in ("after", "both"):
+        password = leet(leet_level, password)
 
     if prefix:
         password = prefix + password

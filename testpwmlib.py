@@ -48,12 +48,12 @@ It can be used both on the command-line and with a GUI based on TKinter.
 
 """
 
-from pwmlib import generatepassword, ALGORITHMS, FULL_CHARSET
+from pwmlib import generatepassword, leet, ALGORITHMS, FULL_CHARSET
 import unittest
 
 
-class PWMTest(unittest.TestCase):
-    """Unit test class for PWM"""
+class TestGeneratepassword(unittest.TestCase):
+    """Unit test class for generatepassword"""
 
     def _generatepassword(self,
                           hashAlgorithm="md5",
@@ -188,6 +188,81 @@ class PWMTest(unittest.TestCase):
             "AK-qG/DWhEk9l-c%tqH}&ttsK\\<Yl4&{"
         self.assertEqual(res, r)
 
+
+class TestLeet(unittest.TestCase):
+    """Unit test class for leet"""
+
+    def test_leet_0(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 0
+        res = leet(leet_level, message)
+        r = "The quick, brown fox jumps over the lazy dog"
+        self.assertEqual(res, r)
+
+    def test_leet_1(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 1
+        res = leet(leet_level, message)
+        r = "Th3 9uick, br0wn f0x jumps 0v3r 7h3 14zy d0g"
+        self.assertEqual(res, r)
+
+    def test_leet_2(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 2
+        res = leet(leet_level, message)
+        r = "Th3 9ulck, br0wn f0x jump5 0v3r 7h3 142y d0g"
+        self.assertEqual(res, r)
+
+    def test_leet_3(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 3
+        res = leet(leet_level, message)
+        r = "Th3 9u'ck, 8r0wn f0x jump5 0v3r 7h3 142'/ d06"
+        self.assertEqual(res, r)
+
+    def test_leet_4(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 4
+        res = leet(leet_level, message)
+        r = "Th3 9u'ck, 8r0wn f0x jump5 0v3r 7h3 1@2'/ d06"
+        self.assertEqual(res, r)
+
+    def test_leet_5(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 5
+        res = leet(leet_level, message)
+        r = "T#3 9u!c|<, |3|20wn f0x 7um|>$ 0\/3|2 7#3 1@2'/ d06"
+        self.assertEqual(res, r)
+
+    def test_leet_6(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 6
+        res = leet(leet_level, message)
+        r = "T#& 9u!c|<, |3|20wn |=0x ,|um|>$ 0\/&|2 7#& 1@2'/ |)06"
+        self.assertEqual(res, r)
+
+    def test_leet_7(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 7
+        res = leet(leet_level, message)
+        r = "T#& 9(_)![|<, |3|20\/\/^/ |=0>< ,|(_)^^|*5 0\/&|2 7#& 1@2'/ |)06"
+        self.assertEqual(res, r)
+
+    def test_leet_8(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 8
+        res = leet(leet_level, message)
+        r = 'T|-|& (,)|_|!(|(, 8|2()\\^/|\\| |=())( _||_||\\/||>$ ()\\/&|2 ' +\
+            '||-|& 1@"/_\'/ |)()6'
+        self.assertEqual(res, r)
+
+    def test_leet_9(self):
+        message = "The quick, brown fox jumps over the lazy dog"
+        leet_level = 9
+        res = leet(leet_level, message)
+        r = 'T|-|& (,)|_|!(|{, 8|2()\\^/|\\| |=())( _||_|/\\/\\|>$ ()\\/&|2' +\
+            ' ||-|& |_@"/_\'/ |)()6'
+        self.assertEqual(res, r)
 
 if __name__ == '__main__':
     unittest.main()
