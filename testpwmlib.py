@@ -2,17 +2,12 @@
 # coding: utf-8
 
 
-from pwmlib import PWM
+from pwmlib import generatepassword, ALGORITHMS, FULL_CHARSET
 import unittest
 
 
 class PWMTest(unittest.TestCase):
     """Unit test class for PWM"""
-
-    FULL_CHARSET = PWM.FULL_CHARSET
-
-    def setUp(self):
-        self.pw = PWM()
 
     def _generatepassword(self,
                           hashAlgorithm="md5",
@@ -22,9 +17,8 @@ class PWMTest(unittest.TestCase):
                           charset=FULL_CHARSET,
                           prefix="",
                           suffix=""):
-        return self.pw.generatepassword(hashAlgorithm, key, data,
-                                        passwordLength, charset,
-                                        prefix, suffix)
+        return generatepassword(hashAlgorithm, key, data, passwordLength,
+                                charset, prefix, suffix)
 
     # Vary password length
 
@@ -58,7 +52,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_sha256(self):
         alg = "sha256"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = '7d,Hgx:o&+&}h;=*>5r'
@@ -66,7 +60,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_hmac_sha256(self):
         alg = "hmac-sha256"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = '~A6{!<Y4UGo$%7x;alX'
@@ -74,7 +68,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_sha1(self):
         alg = "sha1"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = "D)k{Gq\\\\'7]-/3\\=m4p"
@@ -82,7 +76,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_hmac_sha1(self):
         alg = "hmac-sha1"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = "E~|ym$>s:gp'cx-}Y.|"
@@ -90,7 +84,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_md4(self):
         alg = "md4"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = 'BE?3q<(S"!(Hyr(dUmr'
@@ -98,7 +92,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_hmac_md4(self):
         alg = "hmac-md4"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = 'B^z!H_Nx\\p0=iVV<>X,'
@@ -106,7 +100,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_hmac_md5(self):
         alg = "hmac-md5"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = 'IGf<=RsU3qvE"hBFmG}'
@@ -114,7 +108,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_rmd160(self):
         alg = "rmd160"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = "CmAQg:hV'<~Vz.:NnDV"
@@ -122,7 +116,7 @@ class PWMTest(unittest.TestCase):
 
     def test_generatepassword_hmac_rmd160(self):
         alg = "hmac-rmd160"
-        if alg not in self.pw.ALGORITHMS:
+        if alg not in ALGORITHMS:
             raise Warning("Algorithm {} unavailable.".format(alg))
         res = self._generatepassword(hashAlgorithm=alg)
         r = 'DBgLK[hHK{[e8nfH8/S'

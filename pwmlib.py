@@ -63,12 +63,44 @@ else:
     except ImportError:
         raise ImportError("No crypto library found")
 
+FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
+               "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
 
-class PWM_Error(Exception):
-    """Password Maker Error class"""
+# ALGORITHMS tells, which algorithms are available on the current platform.
+# This depends on the Python version, i.e. if hashlib is available and on
+# the availablity of pycrypto.
+
+ALGORITHM_2_HASH_FUNC = {
+    "md5": "any_md5",
+    "hmac-md5": "any_hmac_md5",
+    "sha1": "any_sha1",
+    "hmac-sha1": "any_hmac_sha1",
+}
+
+HASHLIB_ALGORITHM_2_HASH_FUNC = {
+    "sha256": "any_sha256",
+    "hmac-sha256": "any_hmac_sha1",
+}
+
+CRYPTO_ALGORITHM_2_HASH_FUNC = {
+    "md4": "any_md4",
+    "hmac-md4": "any_hmac_md4",
+    "sha256": "any_sha256",
+    "hmac-sha256": "any_hmac_sha256",
+    "rmd160": "any_rmd160",
+    "hmac-rmd160": "any_hmac_rmd160",
+}
+
+if HAS_HASHLIB:
+    ALGORITHM_2_HASH_FUNC.update(HASHLIB_ALGORITHM_2_HASH_FUNC)
+
+if HAS_CRYPTO:
+    ALGORITHM_2_HASH_FUNC.update(CRYPTO_ALGORITHM_2_HASH_FUNC)
+
+ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
 
 
-class PWM_HashUtils:
+class PwmHashUtils(object):
     """Provides hash functions for the passwordmaker main class
 
     Parameters
@@ -82,42 +114,13 @@ class PWM_HashUtils:
 
     """
 
-    ALGORITHM_2_HASH_FUNC = {
-        "md5": "any_md5",
-        "hmac-md5": "any_hmac_md5",
-        "sha1": "any_sha1",
-        "hmac-sha1": "any_hmac_sha1",
-    }
-
-    HASHLIB_ALGORITHM_2_HASH_FUNC = {
-        "sha256": "any_sha256",
-        "hmac-sha256": "any_hmac_sha1",
-    }
-
-    CRYPTO_ALGORITHM_2_HASH_FUNC = {
-        "md4": "any_md4",
-        "hmac-md4": "any_hmac_md4",
-        "sha256": "any_sha256",
-        "hmac-sha256": "any_hmac_sha256",
-        "rmd160": "any_rmd160",
-        "hmac-rmd160": "any_hmac_rmd160",
-    }
-
-    if HAS_HASHLIB:
-        ALGORITHM_2_HASH_FUNC.update(HASHLIB_ALGORITHM_2_HASH_FUNC)
-
-    if HAS_CRYPTO:
-        ALGORITHM_2_HASH_FUNC.update(CRYPTO_ALGORITHM_2_HASH_FUNC)
-
-    ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
-
     def __init__(self, algorithm):
-        if algorithm not in self.ALGORITHMS:
+        if algorithm not in ALGORITHMS:
             msg = "Unknown algorithm: {}. Valid algorithms: {}"
-            valid_algs = ", ".join(self.ALGORITHMS)
+            valid_algs = ", ".join(ALGORITHMS)
             raise ValueError(msg.format(algorithm, valid_algs))
 
-        hash_func_name = self.ALGORITHM_2_HASH_FUNC[algorithm]
+        hash_func_name = ALGORITHM_2_HASH_FUNC[algorithm]
         self.hash_func = getattr(self, hash_func_name)
 
     def rstr2any(self, inp, encoding, trim=True):
@@ -236,79 +239,14 @@ class PWM_HashUtils:
         return self.rstr2any(hmac.new(k, d, RIPEMD).digest(), e, t)
 
 
-class PWM(object):
-    """Main PasswordMaker class used for generating passwords"""
-
-    FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
-                   "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
-
-    ALGORITHMS = PWM_HashUtils.ALGORITHMS
-
-    def generatepasswordfrom(self, settings):
-        concat_url = settings.URL + settings.Username + settings.Modifier
-        return self.generatepassword(settings.Algorithm,
-                                     settings.MasterPass,
-                                     concat_url,
-                                     settings.Length,
-                                     settings.CharacterSet,
-                                     settings.Prefix,
-                                     settings.Suffix)
-
-    # L33t not used here
-    def generatepassword(self, hash_algorithm, key, data, password_length,
-                         charset, prefix="", suffix=""):
-
-        # Never *ever, ever* allow the charset's length<2 else
-        # the hash algorithms will run indefinitely
-
-        if len(charset) < 2:
-            msg = "The charset {} contains less than 2 characters."
-            raise ValueError(msg.format(charset))
-
-        # apply the algorithm
-        hash_func = PWM_HashUtils(hash_algorithm).hash_func
-        hash_uses_hmac = hash_algorithm.count("hmac") > 0
-
-        key = key.encode("utf-8")
-        data = data.encode("utf-8")
-
-        tkey = key  # Copy of the master password so we don't interfere with it
-        dat = data
-
-        password = ''
-
-        for i in range(1000):
-            if i:
-                key = tkey + b"\n" + str(i).encode("utf-8")
-
-            # For non-hmac algorithms, the key is master pw and url
-            # concatenated
-
-            if hash_uses_hmac:
-                password += hash_func(key, dat, charset)
-            else:
-                dat = key + data
-                password += hash_func(dat, charset)
-
-            if len(password) >= password_length:
-                break
-
-        if prefix:
-            password = prefix + password
-        if suffix:
-            password = password[:password_length-len(suffix)] + suffix
-
-        return password[:password_length]
-
-
 @attr.s
-class PWM_Settings(object):
+class PwmSettings(object):
     """Setting class holding all parameters for hash generation"""
 
     int_val = attr.validators.instance_of(int)
     str_val = attr.validators.instance_of(str)
     bool_val = attr.validators.instance_of(bool)
-    algorithm_val = attr.validators.in_(PWM.ALGORITHMS)
+    algorithm_val = attr.validators.in_(ALGORITHMS)
 
     _url_metadata = {'cmd1': "-r", 'cmd2': "--url", "guitext": "URL",
                      "help": "URL (default blank)"}
@@ -345,7 +283,7 @@ class PWM_Settings(object):
                      "guitext": "Characters",
                      "help": "Characters to use in password (default "
                              "[A-Za-z0-9])"}
-    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
+    CharacterSet = attr.ib(default=str(FULL_CHARSET), validator=str_val,
                            type="str", metadata=_chr_metadata)
 
     _pfx_metadata = {'cmd1': "-p", 'cmd2': "--prefix", "guitext": "Prefix",
@@ -374,7 +312,7 @@ class PWM_Settings(object):
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""
 
-        return attr.filters.exclude(attr.fields(PWM_Settings).MasterPass)
+        return attr.filters.exclude(attr.fields(PwmSettings).MasterPass)
 
     def load(self, filepath='pwm.settings'):
         """Loads setting from a json file"""
@@ -414,15 +352,15 @@ class PWM_Settings(object):
 
 
 @attr.s
-class PWM_SettingsList(object):
-    """Stores a list of PWM_Settings"""
+class PwmSettingsList(object):
+    """Stores a list of PwmSettings"""
 
     current = attr.ib(default="default")
     pwm_names = attr.ib(default=["default"])
-    pwms = attr.ib(default=[PWM_Settings()])
+    pwms = attr.ib(default=[PwmSettings()])
 
     def get_pwm_settings(self):
-        """Returns current PWM_Settings"""
+        """Returns current PwmSettings"""
 
         pwm_idx = self.pwm_names.index(self.current)
         return self.pwms[pwm_idx]
@@ -438,7 +376,7 @@ class PWM_SettingsList(object):
         self.pwm_names = []
         self.pwms = []
         for pwm_name, filename in zip(pwm_names, filenames):
-            pwm = PWM_Settings()
+            pwm = PwmSettings()
             pwm.load(filename)
 
             if pwm_name == "default":
@@ -465,3 +403,95 @@ class PWM_SettingsList(object):
         for pwm_name in pwm_names:
             if pwm_name not in self.pwm_names:
                 os.remove("pwm."+pwm_name+".setting")
+
+
+# Main PasswordMaker functions
+
+
+def generatepasswordfrom(settings):
+    """Calls self.generatepassword with parameters from settings
+
+    Parameters
+    ----------
+
+    * settings: PwmSettingsList
+    \tSettings instance
+
+    """
+
+    concat_url = settings.URL + settings.Username + settings.Modifier
+    return generatepassword(hash_algorithm=settings.Algorithm,
+                            key=settings.MasterPass,
+                            data=concat_url,
+                            password_length=settings.Length,
+                            charset=settings.CharacterSet,
+                            prefix=settings.Prefix,
+                            suffix=settings.Suffix)
+
+
+def generatepassword(hash_algorithm, key, data, password_length, charset,
+                     prefix="", suffix=""):
+    """Generates PasswordMaker password
+
+    Note: L33t ist not supported, yet.
+
+    Parameters
+    ----------
+
+    * hash_algorithm: String
+    \tHash algorithm from ALGORITHMS
+    * key: String
+    \tPassword key, normally maps from master password(!)
+    * data: String
+    \tBase data string, normally concatenates url, username and modifier
+    * password_length: Integer
+    \tLength of the generated password, must be in range(2, 129)
+    * charset: String
+    \tCharacters that may appear in the generated password
+    * prefix: String (default: "")
+    \tPassword prefix
+    * suffix: String (default: "")
+    \tPassword suffix
+
+    """
+
+    # If the charset's length < 2 the hash algorithms will run indefinitely.
+
+    if len(charset) < 2:
+        msg = "The charset {} contains less than 2 characters."
+        raise ValueError(msg.format(charset))
+
+    # apply the algorithm
+    hash_func = PwmHashUtils(hash_algorithm).hash_func
+    hash_uses_hmac = hash_algorithm.count("hmac") > 0
+
+    key = key.encode("utf-8")
+    data = data.encode("utf-8")
+
+    tkey = key  # Copy of the master password so we don't interfere with it
+    dat = data
+
+    password = ''
+
+    for i in range(1000):
+        if i:
+            key = tkey + b"\n" + str(i).encode("utf-8")
+
+        # For non-hmac algorithms, the key is master pw and url
+        # concatenated
+
+        if hash_uses_hmac:
+            password += hash_func(key, dat, charset)
+        else:
+            dat = key + data
+            password += hash_func(dat, charset)
+
+        if len(password) >= password_length:
+            break
+
+    if prefix:
+        password = prefix + password
+    if suffix:
+        password = password[:password_length-len(suffix)] + suffix
+
+    return password[:password_length]

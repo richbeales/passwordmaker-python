@@ -53,7 +53,8 @@ except ImportError:
 
 import attr
 
-from pwmlib import PWM, PWM_SettingsList, PWM_Settings, PWM_Error
+from pwmlib import ALGORITHMS
+from pwmlib import generatepasswordfrom, PwmSettingsList, PwmSettings
 
 
 class TextWidget(tk.Entry, object):
@@ -114,7 +115,7 @@ class AlgorithmWidget(tk.OptionMenu, object):
     def __init__(self, parent):
         self.alg = tk.StringVar(parent)
         super(AlgorithmWidget, self).__init__(parent, self.alg, "",
-                                              *PWM.ALGORITHMS)
+                                              *ALGORITHMS)
 
     def get(self):
         """Returns the current algorithm as string"""
@@ -124,7 +125,7 @@ class AlgorithmWidget(tk.OptionMenu, object):
     def set(self, value):
         """Sets current algorithm"""
 
-        assert value in PWM.ALGORITHMS
+        assert value in ALGORITHMS
         self.alg.set(value)
 
 
@@ -140,11 +141,10 @@ class Application(tk.Frame):
 
     def __init__(self, root=None):
         self.root = root
-        self.pwmaker = PWM()
         tk.Frame.__init__(self, root)
         self.background = root.cget("background")
 
-        self.settings_list = PWM_SettingsList()
+        self.settings_list = PwmSettingsList()
         self.settings = self.settings_list.get_pwm_settings()
 
         self.create_widgets()
@@ -160,7 +160,7 @@ class Application(tk.Frame):
         self.labels = []
         self.entry_widgets = []
 
-        for setting in attr.fields(PWM_Settings):
+        for setting in attr.fields(PwmSettings):
             self.labels.append(tk.Label(self, justify="left",
                                         text=setting.metadata["guitext"]))
 
@@ -225,7 +225,7 @@ class Application(tk.Frame):
     def update_settings(self):
         """Updates self.settings from entry widget values"""
 
-        attr_fields = attr.fields(PWM_Settings)
+        attr_fields = attr.fields(PwmSettings)
         for setting, widget in zip(attr_fields, self.entry_widgets):
             self.settings.__setattr__(setting.name, widget.get())
 
@@ -234,7 +234,7 @@ class Application(tk.Frame):
 
         self.settings = self.settings_list.get_pwm_settings()
 
-        for setting, widget in zip(attr.fields(PWM_Settings),
+        for setting, widget in zip(attr.fields(PwmSettings),
                                    self.entry_widgets):
             widget.set(self.settings[setting.name])
 
@@ -283,7 +283,7 @@ class Application(tk.Frame):
                 return
 
         self.settings_list.pwm_names.append(name)
-        self.settings_list.pwms.append(PWM_Settings())
+        self.settings_list.pwms.append(PwmSettings())
 
         self.update_listbox()
 
@@ -315,10 +315,9 @@ class Application(tk.Frame):
 
         self.update_settings()
         self.generate_button.flash()
-        try:
-            pwd = self.pwmaker.generatepasswordfrom(self.settings)
-        except PWM_Error as err:
-            pwd = str(err)
+
+        pwd = generatepasswordfrom(self.settings)
+
         current_passwd = self.passwd_text.get()
         if current_passwd:
             self.passwd_text.delete(0, len(current_passwd))
@@ -345,7 +344,7 @@ def cmd():
         description = "Usage: %prog [options]"
         parser = argparse.ArgumentParser(description=description)
 
-        for setting in attr.fields(PWM_Settings):
+        for setting in attr.fields(PwmSettings):
             cmd1 = setting.metadata["cmd1"]
             cmd2 = setting.metadata["cmd2"]
             dest = setting.name
@@ -358,7 +357,7 @@ def cmd():
     def update_settings(options, settings):
         """Updates self.settings from entry widget values"""
 
-        for setting in attr.fields(PWM_Settings):
+        for setting in attr.fields(PwmSettings):
             val = getattr(options, setting.name)
             if setting.name == "URL":
                 val += options.Username + options.Modifier
@@ -377,11 +376,10 @@ def cmd():
         import getpass
         args.MasterPass = getpass.getpass("Master password: ")
 
-    settings = PWM_Settings()
+    settings = PwmSettings()
     update_settings(args, settings)
 
-    pwm = PWM()
-    print(pwm.generatepasswordfrom(settings))
+    print(generatepasswordfrom(settings))
 
 
 def main():
