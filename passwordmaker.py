@@ -59,7 +59,7 @@ except ImportError:
 
 import attr
 
-from pwmlib import ALGORITHMS
+from pwmlib import ALGORITHMS, LEET_OPTIONS
 from pwmlib import generatepasswordfrom, PwmSettingsList, PwmSettings
 
 
@@ -120,8 +120,8 @@ class AlgorithmWidget(tk.OptionMenu, object):
 
     def __init__(self, parent):
         self.alg = tk.StringVar(parent)
-        super(AlgorithmWidget, self).__init__(parent, self.alg, "",
-                                              *ALGORITHMS)
+        super(AlgorithmWidget, self).__init__(parent, self.alg, "md5",
+                                              *ALGORITHMS[1:])
 
     def get(self):
         """Returns the current algorithm as string"""
@@ -135,6 +135,30 @@ class AlgorithmWidget(tk.OptionMenu, object):
         self.alg.set(value)
 
 
+class UseLeetWidget(tk.OptionMenu, object):
+    """OptionMenu widget for l33t speech usage
+
+    Interfaces: get, set
+
+    """
+
+    def __init__(self, parent):
+        self.leet_usage = tk.StringVar(parent)
+        super(UseLeetWidget, self).__init__(parent, self.leet_usage, "none",
+                                            *LEET_OPTIONS[1:])
+
+    def get(self):
+        """Returns the current algorithm as string"""
+
+        return self.leet_usage.get()
+
+    def set(self, value):
+        """Sets current algorithm"""
+
+        assert value in LEET_OPTIONS
+        self.leet_usage.set(value)
+
+
 class Application(tk.Frame):
     """Main application window class"""
 
@@ -143,6 +167,7 @@ class Application(tk.Frame):
         "pwd": PasswordWidget,
         "int": IntWidget,
         "alg": AlgorithmWidget,
+        "l3t": UseLeetWidget,
     }
 
     def __init__(self, root=None):

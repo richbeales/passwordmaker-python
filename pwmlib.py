@@ -345,7 +345,7 @@ class PwmSettings(object):
     _useleet_metadata = {'cmd1': "-l", 'cmd2': "--leet", "guitext": "Use leet",
                          "help": "Use leet speech. <none|before|after|both>"
                                  "(default: none)"}
-    UseLeet = attr.ib(default="none", validator=leet_val, type="str",
+    UseLeet = attr.ib(default="none", validator=leet_val, type="l3t",
                       metadata=_useleet_metadata)
 
     _leetlvl_metadata = {'cmd1': "-L", 'cmd2': "--leetlevel",
