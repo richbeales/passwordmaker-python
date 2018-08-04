@@ -3,8 +3,8 @@
 
 """
 
-PasswordMaker unit tests
-========================
+PasswordMaker - Python unit tests
+=================================
 
 Create and manage passwords.
 

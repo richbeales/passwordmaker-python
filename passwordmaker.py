@@ -3,8 +3,8 @@
 
 """
 
-PasswordMaker
-=============
+PasswordMaker - Python
+======================
 
 Create and manage passwords.
 

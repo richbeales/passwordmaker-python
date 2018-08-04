@@ -3,8 +3,8 @@
 
 """
 
-PasswordMaker library
-=====================
+PasswordMaker - Python library
+==============================
 
 Create and manage passwords.
 
