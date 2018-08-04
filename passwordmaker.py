@@ -1,43 +1,49 @@
 #!/usr/bin/env python
-# coding: utf-8
+# coding=utf-8
 
 """
-  PasswordMaker - Creates and manages passwords
-  Copyright (C) 2005 Eric H. Jung and LeahScape, Inc.
-  http://passwordmaker.org/
-  grimholtz@yahoo.com
 
-  This library is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or (at
-  your option) any later version.
+PasswordMaker
+=============
 
-  This library is distributed in the hope that it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-  FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
-  for more details.
+Create and manage passwords.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with this library; if not, write to the Free Software Foundation,
-  Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-  Written by Miquel Burns and Eric H. Jung
+Copyright (C):
 
-  PHP version written by Pedro Gimeno Fortea
-      <http://www.formauri.es/personal/pgimeno/>
-  and updated by Miquel Matthew 'Fire' Burns
-      <miquelfire@gmail.com>
-  Ported to Python by Aurelien Bompard
-      <http://aurelien.bompard.org>
-  Updated by Richard Beales
-      <rich@richbeales.net>
-  Updated and ported to Python3 by Martin Manns
-      <mmanns@gmx.net>
+    2005      Eric H. Jung, Miquel Burns and LeahScape, Inc.
+              <http://passwordmaker.org>
+              <grimholtz@yahoo.com>
+    2005-2007 Pedro Gimeno Fortea and Miquel Matthew 'Fire' Burns
+              <http://www.formauri.es/personal/pgimeno/>
+              <miquelfire@gmail.com>
+    2010      Aurelien Bompard
+              <http://aurelien.bompard.org>
+    2012      Richard Beales
+              <rich@richbeales.net>
+    2014      Richard Beales, Laurent Bachelier and Christoph Sarnowski
+              <rich@richbeales.net>
+    2018      Martin Manns
+              <mmanns@gmx.net>
 
-  This version should work with python > 3.5 The pycrypto module enables
-  additional algorithms.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
-  It can be used both on the command-line and with a GUI based on TKinter.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
+    This version should work with Python > 2.3 including Python 3.x.
+    The pycrypto module enables additional algorithms.
+
+    It can be used both on the command-line and with a GUI based on TKinter.
 
 """
 

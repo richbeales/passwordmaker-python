@@ -1,39 +1,50 @@
 #!/usr/bin/env python
-# coding: utf-8
+# coding=utf-8
 
 """
-  PasswordMaker - Creates and manages passwords
-  Copyright (C) 2005 Eric H. Jung and LeahScape, Inc.
-  http://passwordmaker.org/
-  grimholtz@yahoo.com
 
-  This library is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or (at
-  your option) any later version.
+PasswordMaker library
+=====================
 
-  This library is distributed in the hope that it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-  FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
-  for more details.
+Create and manage passwords.
 
-  You should have received a copy of the GNU Lesser General Public License
-  along with this library; if not, write to the Free Software Foundation,
-  Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-  Written by Miquel Burns and Eric H. Jung
+Copyright (C):
 
-  PHP version written by Pedro Gimeno Fortea
-      <http://www.formauri.es/personal/pgimeno/>
-  and updated by Miquel Matthew 'Fire' Burns
-      <miquelfire@gmail.com>
-  Ported to Python by Aurelien Bompard
-      <http://aurelien.bompard.org>
-  Updated by Richard Beales
-      <rich@richbeales.net>
+    2005      Eric H. Jung, Miquel Burns and LeahScape, Inc.
+              <http://passwordmaker.org>
+              <grimholtz@yahoo.com>
+    2005-2007 Pedro Gimeno Fortea and Miquel Matthew 'Fire' Burns
+              <http://www.formauri.es/personal/pgimeno/>
+              <miquelfire@gmail.com>
+    2010      Aurelien Bompard
+              <http://aurelien.bompard.org>
+    2012      Richard Beales
+              <rich@richbeales.net>
+    2014      Richard Beales, Laurent Bachelier and Christoph Sarnowski
+              <rich@richbeales.net>
+    2018      Martin Manns
+              <mmanns@gmx.net>
 
-  This version should work with python > 2.3. The pycrypto module enables
-  additional algorithms.
+    This file is part of PasswordMaker.
+
+    PasswordMaker is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Foobar is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
+    This version should work with Python > 2.3 including Python 3.x.
+    The pycrypto module enables additional algorithms.
+
+    It can be used both on the command-line and with a GUI based on TKinter.
 
 """
 
@@ -100,6 +111,7 @@ if HAS_CRYPTO:
 ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
 
 
+@attr.s
 class PwmHashUtils(object):
     """Provides hash functions for the passwordmaker main class
 
@@ -111,25 +123,35 @@ class PwmHashUtils(object):
     \tIf hashlib is present also out of "sha256", "hmac-sha256"
     \tIf pycrypto is present also out of "md4", "hmac-md4", "sha256",
     \t"hmac-sha256", "rmd160", "hmac-rmd160"
+    * encoding: String
+    \tCharacters that may appear in the generated password
 
     """
 
-    def __init__(self, algorithm):
-        if algorithm not in ALGORITHMS:
+    algorithm = attr.ib()
+    encoding = attr.ib()
+
+    @algorithm.validator
+    def _check_algorithm(self, _, value):
+        if value not in ALGORITHMS:
             msg = "Unknown algorithm: {}. Valid algorithms: {}"
             valid_algs = ", ".join(ALGORITHMS)
-            raise ValueError(msg.format(algorithm, valid_algs))
+            raise ValueError(msg.format(value, valid_algs))
 
-        hash_func_name = ALGORITHM_2_HASH_FUNC[algorithm]
-        self.hash_func = getattr(self, hash_func_name)
+    @property
+    def hash_func_wrapper(self):
+        hash_func_name = ALGORITHM_2_HASH_FUNC[self.algorithm]
+        return getattr(self, hash_func_name)
 
-    def rstr2any(self, inp, encoding, trim=True):
-        """Convert a raw string to an arbitrary string encoding.
+    def rstr2any(self, inp, trim=True):
+        """Convert a raw string to encoded string
 
-        Set trim to false for keeping leading zeros
+        Set trim to false for keeping leading zeros.
+        The generated string only contains characters from self.charset.
 
         """
 
+        encoding = self.encoding
         divisor = len(encoding)
 
         def get_quotient_remainder(dividend):
@@ -137,11 +159,11 @@ class PwmHashUtils(object):
 
             quotient = []
             remainder = 0
-            for i in range(len(dividend)):
-                remainder = (remainder << 16) + dividend[i]
+            for dividend_ele in dividend:
+                remainder = (remainder << 16) + dividend_ele
                 quot = remainder // divisor
                 remainder -= quot * divisor
-                if len(quotient) or quot:
+                if quotient or quot:
                     quotient.append(quot)
 
             return quotient, remainder
@@ -184,59 +206,79 @@ class PwmHashUtils(object):
 
         return output
 
-    def any_md5(self, s, e, t=True):
-        if HAS_HASHLIB:
-            __hash = hashlib.md5(s).digest()
-        else:
-            __hash = md5.new(s).digest()
-        return self.rstr2any(__hash, e, t)
+    def any_md5(self, inp, trim=True):
+        """MD5 function wrapper"""
 
-    def any_hmac_md5(self, k, d, e, t=True):
+        if HAS_HASHLIB:
+            __hash = hashlib.md5(inp).digest()
+        else:
+            __hash = md5.new(inp).digest()
+        return self.rstr2any(__hash, trim)
+
+    def any_hmac_md5(self, key, inp, trim=True):
+        """MD5 HMAC function wrapper"""
+
         if HAS_HASHLIB:
             hashfunc = hashlib.md5
         else:
             hashfunc = md5
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_sha1(self, s, e, t=True):
+    def any_sha1(self, inp, trim=True):
+        """SHA1 function wrapper"""
+
         if HAS_HASHLIB:
-            __hash = hashlib.sha1(s).digest()
+            __hash = hashlib.sha1(inp).digest()
         else:
-            __hash = sha.new(s).digest()
-        return self.rstr2any(__hash, e, t)
+            __hash = sha.new(inp).digest()
+        return self.rstr2any(__hash, trim)
 
-    def any_hmac_sha1(self, k, d, e, t=True):
+    def any_hmac_sha1(self, key, inp, trim=True):
+        """SHA1 HMAC function wrapper"""
+
         if HAS_HASHLIB:
             hashfunc = hashlib.sha1
         else:
             hashfunc = sha
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_sha256(self, s, e, t=True):
+    def any_sha256(self, inp, trim=True):
+        """SHA256 function wrapper"""
+
         if HAS_HASHLIB:
-            __hash = hashlib.sha256(s).digest()
+            __hash = hashlib.sha256(inp).digest()
         else:
-            __hash = SHA256.new(s).digest()
-        return self.rstr2any(__hash, e, t)
+            __hash = SHA256.new(inp).digest()
+        return self.rstr2any(__hash, trim)
 
-    def any_hmac_sha256(self, k, d, e, t=True):
+    def any_hmac_sha256(self, key, inp, trim=True):
+        """SHA256 HMAC function wrapper"""
+
         if HAS_HASHLIB:
             hashfunc = hashlib.sha256
         else:
             hashfunc = SHA256
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_md4(self, s, e, t=True):
-        return self.rstr2any(MD4.new(s).digest(), e, t)
+    def any_md4(self, inp, trim=True):
+        """MD4 function wrapper"""
 
-    def any_hmac_md4(self, k, d, e, t=True):
-        return self.rstr2any(hmac.new(k, d, MD4).digest(), e, t)
+        return self.rstr2any(MD4.new(inp).digest(), trim)
 
-    def any_rmd160(self, s, e, t=True):
-        return self.rstr2any(RIPEMD.new(s).digest(), e, t)
+    def any_hmac_md4(self, key, inp, trim=True):
+        """MD4 HMAC function wrapper"""
 
-    def any_hmac_rmd160(self, k, d, e, t=True):
-        return self.rstr2any(hmac.new(k, d, RIPEMD).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, MD4).digest(), trim)
+
+    def any_rmd160(self, inp, trim=True):
+        """RMD160 function wrapper"""
+
+        return self.rstr2any(RIPEMD.new(inp).digest(), trim)
+
+    def any_hmac_rmd160(self, key, inp, trim=True):
+        """RMD160 HMAC function wrapper"""
+
+        return self.rstr2any(hmac.new(key, inp, RIPEMD).digest(), trim)
 
 
 @attr.s
@@ -260,7 +302,7 @@ class PwmSettings(object):
 
     _alg_metadata = {'cmd1': "-a", 'cmd2': "--alg", "guitext": "Algorithm",
                      "help": "Hash algorithm [hmac-] md4/md5/sha1/sha256/"
-                             "rmd160 [_v6] (default md5)"}
+                             "rmd160 (default md5)"}
     Algorithm = attr.ib(default="md5", validator=algorithm_val, type="alg",
                         metadata=_alg_metadata)
 
@@ -462,7 +504,7 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
         raise ValueError(msg.format(charset))
 
     # apply the algorithm
-    hash_func = PwmHashUtils(hash_algorithm).hash_func
+    hash_func_wrapper = PwmHashUtils(hash_algorithm, charset).hash_func_wrapper
     hash_uses_hmac = hash_algorithm.count("hmac") > 0
 
     key = key.encode("utf-8")
@@ -481,10 +523,10 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
         # concatenated
 
         if hash_uses_hmac:
-            password += hash_func(key, dat, charset)
+            password += hash_func_wrapper(key, dat)
         else:
             dat = key + data
-            password += hash_func(dat, charset)
+            password += hash_func_wrapper(dat)
 
         if len(password) >= password_length:
             break
