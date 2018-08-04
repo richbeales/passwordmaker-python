@@ -378,7 +378,14 @@ class PWM_Settings(object):
             for attr_key in attr_fields:
                 if attr_key in file_dict:
                     self.__setattr__(attr_key, file_dict[attr_key])
-                    attr.validate(self)
+                    try:
+                        attr.validate(self)
+                    except TypeError:
+                        # Python 2 fix
+                        value = file_dict[attr_key].encode("utf-8")
+                        self.__setattr__(attr_key, value)
+                        attr.validate(self)
+
         except TypeError as err:
             # If attrs are of the wrong type then roll back
             for attr_key in attr_fields:

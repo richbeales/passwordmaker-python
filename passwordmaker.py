@@ -52,7 +52,7 @@ import attr
 from pwmlib import PWM, PWM_SettingsList, PWM_Settings, PWM_Error
 
 
-class TextWidget(tk.Entry):
+class TextWidget(tk.Entry, object):
     """Text entry widget
 
     Interfaces: get, set
@@ -75,10 +75,11 @@ class PasswordWidget(TextWidget):
 
     def __init__(self, parent, *args, **kwargs):
         kwargs.update({'show': "*"})
+
         super(PasswordWidget, self).__init__(parent, *args, **kwargs)
 
 
-class IntWidget(tk.Spinbox):
+class IntWidget(tk.Spinbox, object):
     """Spinbox widget for Integers
 
     Interfaces: get, set
@@ -99,7 +100,7 @@ class IntWidget(tk.Spinbox):
         self.insert(0, value)
 
 
-class AlgorithmWidget(tk.OptionMenu):
+class AlgorithmWidget(tk.OptionMenu, object):
     """OptionMenu widget for Algorithms
 
     Interfaces: get, set
