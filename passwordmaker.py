@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+
 """
   PasswordMaker - Creates and manages passwords
   Copyright (C) 2005 Eric H. Jung and LeahScape, Inc.
@@ -30,13 +31,16 @@
       <http://aurelien.bompard.org>
   Updated by Richard Beales
       <rich@richbeales.net>
-  Ported to Python3 by Martin Manns
+  Updated and ported to Python3 by Martin Manns
+      <mmanns@gmx.net>
 
   This version should work with python > 3.5 The pycrypto module enables
   additional algorithms.
 
-  Can be used both on the command-line and with a GUI based on TKinter
+  It can be used both on the command-line and with a GUI based on TKinter.
+
 """
+
 
 import argparse
 import sys

@@ -1,4 +1,6 @@
+#!/usr/bin/env python
 # coding: utf-8
+
 """
   PasswordMaker - Creates and manages passwords
   Copyright (C) 2005 Eric H. Jung and LeahScape, Inc.
@@ -39,9 +41,9 @@ import os
 import sys
 import hmac
 import json
-import attr
-
 from math import ceil, log
+
+import attr
 
 try:
     # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
@@ -126,6 +128,21 @@ class PWM_HashUtils:
         """
 
         divisor = len(encoding)
+
+        def get_quotient_remainder(dividend):
+            """Returns tuple (quotient, remainder) from dividend"""
+
+            quotient = []
+            remainder = 0
+            for i in range(len(dividend)):
+                remainder = (remainder << 16) + dividend[i]
+                quot = remainder // divisor
+                remainder -= quot * divisor
+                if len(quotient) or quot:
+                    quotient.append(quot)
+
+            return quotient, remainder
+
         remainders = []
 
         # Convert to an array of 16-bit big-endian values, forming the dividend
@@ -146,31 +163,16 @@ class PWM_HashUtils:
         # dividend is zero. All remainders are stored for later use.
 
         if trim:
-            while len(dividend) > 0:
-                quotient = []
-                x = 0
-                for i in range(len(dividend)):
-                    x = (x << 16) + dividend[i]
-                    q = x // divisor
-                    x -= q * divisor
-                    if len(quotient) > 0 or q > 0:
-                        quotient.append(q)
-                remainders.append(x)
-                dividend = quotient
+            while dividend:
+                dividend, remainder = get_quotient_remainder(dividend)
+                remainders.append(remainder)
+
         else:
             full_length = ceil(float(len(inp) * 8) /
                                (log(len(encoding)) / log(2)))
             for j in range(len(full_length)):
-                quotient = []
-                x = 0
-                for i in range(len(dividend)):
-                    x = (x << 16) + dividend[i]
-                    q = x // divisor
-                    x -= q * divisor
-                    if len(quotient) > 0 or q > 0:
-                        quotient[len(quotient)] = q
-                remainders[j] = x
-                dividend = quotient
+                dividend, remainder = get_quotient_remainder(dividend)
+                remainders[j] = remainder
 
         # Convert the remainders to the output string
         output = ""
@@ -308,57 +310,66 @@ class PWM_Settings(object):
     bool_val = attr.validators.instance_of(bool)
     algorithm_val = attr.validators.in_(PWM.ALGORITHMS)
 
+    _url_metadata = {'cmd1': "-r", 'cmd2': "--url", "guitext": "URL",
+                     "help": "URL (default blank)"}
     URL = attr.ib(default="", validator=str_val, type="str",
-                  metadata={'cmd1': "-r", 'cmd2': "--url",
-                            "guitext": "URL",
-                            "help": "URL (default blank)"})
-    MasterPass = attr.ib(default="", validator=str_val, type="pwd",
-                         metadata={'cmd1': "-m", 'cmd2': "--mpw",
-                                   "guitext": "Master PW",
-                                   "help": "Master password (default: ask)"})
-    Algorithm = attr.ib(default="md5", validator=algorithm_val, type="alg",
-                        metadata={'cmd1': "-a", 'cmd2': "--alg",
-                                  "guitext": "Algorithm",
-                                  "help": "Hash algorithm [hmac-] " +
-                                  "md4/md5/sha1/sha256/rmd160 [_v6] " +
-                                  "(default md5)"})
-    Username = attr.ib(default="", validator=str_val, type="str",
-                       metadata={'cmd1': "-u", 'cmd2': "--user",
-                                 "guitext": "Username",
-                                 "help": "Username (default blank)"})
-    Modifier = attr.ib(default="", validator=str_val, type="str",
-                       metadata={'cmd1': "-d", 'cmd2': "--modifier",
-                                 "guitext": "Modifier",
-                                 "help": "Password modifier (default blank)"})
-    Length = attr.ib(default=8, validator=int_val, type="int",
-                     metadata={'cmd1': "-g", 'cmd2': "--length",
-                               "guitext": "Length",
-                               "help": "Password length (default 8)"})
-    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
-                           type="str",
-                           metadata={'cmd1': "-c", 'cmd2': "--charset",
-                                     "guitext": "Characters",
-                                     "help": "Characters to use in password " +
-                                             "(default [A-Za-z0-9])"})
-    Prefix = attr.ib(default="", validator=str_val, type="str",
-                     metadata={'cmd1': "-p", 'cmd2': "--prefix",
-                               "guitext": "Prefix",
-                               "help": "Password prefix (default blank)"})
-    Suffix = attr.ib(default="", validator=str_val, type="str",
-                     metadata={'cmd1': "-s", 'cmd2': "--suffix",
-                               "guitext": "Suffix",
-                               "help": "Password suffix (default blank)"})
-#    UseLeet = attr.ib(default=False, validator=bool_val, type="bool",
-#                      metadata={'cmd1': "-l", 'cmd2': "--leet",
-#                                "guitext": "",
-#                                "help": "Not implemented (does nothing)"})
-#    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
-#                      metadata={'cmd1': "-L", 'cmd2': "--leetlevel",
-#                                "guitext": "",
-#                                "help": "Not implemented (does nothing)"})
+                  metadata=_url_metadata)
 
-    def __getitem__(self, attr):
-        return self.__getattribute__(attr)
+    _mpw_metadata = {'cmd1': "-m", 'cmd2': "--mpw", "guitext": "Master PW",
+                     "help": "Master password (default: ask)"}
+    MasterPass = attr.ib(default="", validator=str_val, type="pwd",
+                         metadata=_mpw_metadata)
+
+    _alg_metadata = {'cmd1': "-a", 'cmd2': "--alg", "guitext": "Algorithm",
+                     "help": "Hash algorithm [hmac-] md4/md5/sha1/sha256/"
+                             "rmd160 [_v6] (default md5)"}
+    Algorithm = attr.ib(default="md5", validator=algorithm_val, type="alg",
+                        metadata=_alg_metadata)
+
+    _usr_metadata = {'cmd1': "-u", 'cmd2': "--user", "guitext": "Username",
+                     "help": "Username (default blank)"}
+    Username = attr.ib(default="", validator=str_val, type="str",
+                       metadata=_usr_metadata)
+
+    _mod_metadata = {'cmd1': "-d", 'cmd2': "--modifier", "guitext": "Modifier",
+                     "help": "Password modifier (default blank)"}
+    Modifier = attr.ib(default="", validator=str_val, type="str",
+                       metadata=_mod_metadata)
+
+    _len_metadata = {'cmd1': "-g", 'cmd2': "--length", "guitext": "Length",
+                     "help": "Password length (default 8)"}
+    Length = attr.ib(default=8, validator=int_val, type="int",
+                     metadata=_len_metadata)
+
+    _chr_metadata = {'cmd1': "-c", 'cmd2': "--charset",
+                     "guitext": "Characters",
+                     "help": "Characters to use in password (default "
+                             "[A-Za-z0-9])"}
+    CharacterSet = attr.ib(default=str(PWM().FULL_CHARSET), validator=str_val,
+                           type="str", metadata=_chr_metadata)
+
+    _pfx_metadata = {'cmd1': "-p", 'cmd2': "--prefix", "guitext": "Prefix",
+                     "help": "Password prefix (default blank)"}
+    Prefix = attr.ib(default="", validator=str_val, type="str",
+                     metadata=_pfx_metadata)
+
+    _sfx_metadata = {'cmd1': "-s", 'cmd2': "--suffix", "guitext": "Suffix",
+                     "help": "Password suffix (default blank)"}
+    Suffix = attr.ib(default="", validator=str_val, type="str",
+                     metadata=_sfx_metadata)
+
+#    _useleet_metadata = {'cmd1': "-l", 'cmd2': "--leet", "guitext": "",
+#                         "help": "Not implemented (does nothing)"}
+#    UseLeet = attr.ib(default=False, validator=bool_val, type="bool",
+#                      metadata=_useleet_metadata)
+
+#    _leetlvl_metadata = {'cmd1': "-L", 'cmd2': "--leetlevel", "guitext": "",
+#                         "help": "Not implemented (does nothing)"}
+#    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
+#                      metadata=_leetlvl_metadata)
+
+    def __getitem__(self, __attr):
+        return self.__getattribute__(__attr)
 
     def _get_attr_filters(self):
         """Returns attr filters that excludes MasterPass"""
