@@ -110,7 +110,7 @@ if HAS_CRYPTO:
 
 ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
 
-LEET_OPTIONS = ["none", "before", "after", "both"]
+LEET_OPTIONS = ("none", "before", "after", "both")
 
 
 @attr.s
@@ -519,7 +519,7 @@ def leet(leet_level, message):
     leet_mapping = get_leet_mapping(leet_level)
 
     leet_message = ""
-    for char in message:
+    for char in message.lower():
         try:
             leet_message += leet_mapping[char]
         except KeyError:
@@ -594,8 +594,7 @@ def generatepassword(hash_algorithm, key, data, password_length, charset,
     # Apply l33t before the algorithm?
     if use_leet in ("before", "both"):
         key = leet(leet_level, key)
-        if hash_uses_hmac:
-            data = leet(leet_level, data)
+        data = leet(leet_level, data)
 
     # Ensure encoding to avoid Python3 issues
     key = key.encode("utf-8")
