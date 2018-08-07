@@ -1,192 +1,207 @@
-# coding: utf-8
-"""
-  PasswordMaker - Creates and manages passwords
-  Copyright (C) 2005 Eric H. Jung and LeahScape, Inc.
-  http://passwordmaker.org/
-  grimholtz@yahoo.com
-
-  This library is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or (at
-  your option) any later version.
-
-  This library is distributed in the hope that it will be useful, but WITHOUT
-  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-  FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License
-  for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with this library; if not, write to the Free Software Foundation,
-  Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
-
-  Written by Miquel Burns and Eric H. Jung
-
-  PHP version written by Pedro Gimeno Fortea
-      <http://www.formauri.es/personal/pgimeno/>
-  and updated by Miquel Matthew 'Fire' Burns
-      <miquelfire@gmail.com>
-  Ported to Python by Aurelien Bompard
-      <http://aurelien.bompard.org>
-  Updated by Richard Beales
-      <rich@richbeales.net>
-
-  This version should work with python > 2.3. The pycrypto module enables
-  additional algorithms.
+#!/usr/bin/env python
+# coding=utf-8
 
 """
 
-import sys, hmac, math
+PasswordMaker - Python library
+==============================
+
+Create and manage passwords.
 
 
-class PWM_Error(Exception):
+Copyright (C):
+
+    2005      Eric H. Jung, Miquel Burns and LeahScape, Inc.
+              <http://passwordmaker.org>
+              <grimholtz@yahoo.com>
+    2005-2007 Pedro Gimeno Fortea and Miquel Matthew 'Fire' Burns
+              <http://www.formauri.es/personal/pgimeno/>
+              <miquelfire@gmail.com>
+    2010      Aurelien Bompard
+              <http://aurelien.bompard.org>
+    2012      Richard Beales
+              <rich@richbeales.net>
+    2014      Richard Beales, Laurent Bachelier and Christoph Sarnowski
+              <rich@richbeales.net>
+    2018      Martin Manns
+              <mmanns@gmx.net>
+
+    This file is part of PasswordMaker.
+
+    PasswordMaker is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Foobar is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Lesser General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with Foobar.  If not, see <https://www.gnu.org/licenses/>.
+
+This version should work with Python > 2.3 including Python 3.x.
+The pycrypto module enables additional algorithms.
+
+It can be used both on the command-line and with a GUI based on TKinter.
+
+"""
+
+import os
+import sys
+import hmac
+import json
+from math import ceil, log
+
+import attr
+
+try:
+    # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
+    from Crypto.Hash import MD4, SHA256, RIPEMD
+    HAS_CRYPTO = True
+except ImportError:
+    HAS_CRYPTO = False
+
+HAS_HASHLIB = float(sys.version[:3]) >= 2.5
+
+if HAS_HASHLIB:
+    import hashlib
+else:
+    try:
+        import sha
+        import md5
+    except ImportError:
+        raise ImportError("No crypto library found")
+
+FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + \
+               "0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
+
+# ALGORITHMS tells, which algorithms are available on the current platform.
+# This depends on the Python version, i.e. if hashlib is available and on
+# the availablity of pycrypto.
+
+ALGORITHM_2_HASH_FUNC = {
+    "md5": "any_md5",
+    "hmac-md5": "any_hmac_md5",
+    "sha1": "any_sha1",
+    "hmac-sha1": "any_hmac_sha1",
+}
+
+HASHLIB_ALGORITHM_2_HASH_FUNC = {
+    "sha256": "any_sha256",
+    "hmac-sha256": "any_hmac_sha1",
+}
+
+CRYPTO_ALGORITHM_2_HASH_FUNC = {
+    "md4": "any_md4",
+    "hmac-md4": "any_hmac_md4",
+    "sha256": "any_sha256",
+    "hmac-sha256": "any_hmac_sha256",
+    "rmd160": "any_rmd160",
+    "hmac-rmd160": "any_hmac_rmd160",
+}
+
+if HAS_HASHLIB:
+    ALGORITHM_2_HASH_FUNC.update(HASHLIB_ALGORITHM_2_HASH_FUNC)
+
+if HAS_CRYPTO:
+    ALGORITHM_2_HASH_FUNC.update(CRYPTO_ALGORITHM_2_HASH_FUNC)
+
+ALGORITHMS = tuple(ALGORITHM_2_HASH_FUNC.keys())
+
+LEET_OPTIONS = ("none", "before", "after", "both")
+
+
+@attr.s
+class PwmHashUtils(object):
+    """Provides hash functions for PasswordMaker
+
+    Parameters
+    ----------
+
+    * algorithm: String
+    \tOne valid algorithm out of "md5", "hmac-md5", "sha1", "hmac-sha1"
+    \tIf hashlib is present also out of "sha256", "hmac-sha256"
+    \tIf pycrypto is present also out of "md4", "hmac-md4", "sha256",
+    \t"hmac-sha256", "rmd160", "hmac-rmd160"
+    * encoding: String
+    \tCharacters that may appear in the generated password
+
     """
-        Password Maker Error class, inherits from Exception, currently
-does nothing else
-    """
-    pass
 
-class PWM:
-   """
-      Main PasswordMaker class used for generating passwords
-   """
-   FULL_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./"
+    algorithm = attr.ib()
+    encoding = attr.ib()
 
-   def __init__(self):
-      self.valid_algs = self.getValidAlgorithms()
+    @algorithm.validator
+    def _check_algorithm(self, _, value):
+        if value not in ALGORITHMS:
+            msg = "Unknown algorithm: {}. Valid algorithms: {}"
+            valid_algs = ", ".join(ALGORITHMS)
+            raise ValueError(msg.format(value, valid_algs))
 
-   def getValidAlgorithms(self):
-      valid_algs = ["md5", "hmac-md5", "sha1", "hmac-sha1"]
-      if float(sys.version[:3]) >= 2.5: # We have hashlib
-        valid_algs.extend(["sha256", "hmac-sha256"])
-      try: # Do we have pycrypto ? <http://www.amk.ca/python/code/crypto>
-        import Crypto  # NOQA
-        for alg in ["md4", "hmac-md4", "sha256", "hmac-sha256", "rmd160", "hmac-rmd160"]:
-           if alg not in valid_algs:
-              valid_algs.append(alg)
-      except ImportError:
-        pass
-      return valid_algs
+    @property
+    def hash_func_wrapper(self):
+        """Returns hash_function wrapper that may be used for self.algorithm"""
 
-   def generatepasswordfrom(self,settings):
-      return self.generatepassword(settings.Algorithm,
-                              settings.MasterPass,
-                              settings.URL + settings.Username + settings.Modifier,
-                              settings.UseLeet,
-                              settings.LeetLvl,
-                              settings.Length,
-                              settings.CharacterSet,
-                              settings.Prefix,
-                              settings.Suffix)
+        hash_func_name = ALGORITHM_2_HASH_FUNC[self.algorithm]
+        return getattr(self, hash_func_name)
 
-   # L33t not used here
-   def generatepassword(self,hashAlgorithm, key, data, whereToUseL33t, l33tLevel, passwordLength, charset, prefix="", suffix=""):
-      # Never *ever, ever* allow the charset's length<2 else
-      # the hash algorithms will run indefinitely
-      if len(charset) < 2:
-          return ""
-      alg = hashAlgorithm.split("_")
-      if len(alg) > 1 and alg[1] == "v6":
-          trim = False
-          charset = '0123456789abcdef'
-      else:
-          trim = True
-          hashAlgorithm = alg[0]
-      # Check for validity of algorithm
-      if hashAlgorithm not in self.valid_algs:
-          raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
+    def rstr2any(self, inp, trim=True):
+        """Convert a raw string to encoded string
 
-      # apply the algorithm
-      hashclass = PWM_HashUtils()
-      password = ''
-      count = 0;
-      tkey = key # Copy of the master password so we don't interfere with it.
-      dat = data
-      while len(password) < passwordLength and count < 1000:
-          if count == 0:
-              key = tkey
-          else:
-              key = "%s\n%s" % (tkey, count)
-          # for non-hmac algorithms, the key is master pw and url concatenated
-          if hashAlgorithm.count("hmac") == 0:
-              dat = key+data
-          if hashAlgorithm == "sha256":
-              password += hashclass.any_sha256(dat, charset, trim)
-          elif hashAlgorithm == "hmac-sha256":
-              password += hashclass.any_hmac_sha256(key, dat, charset, trim)
-          elif hashAlgorithm == "sha1":
-              password += hashclass.any_sha1(dat, charset, trim)
-          elif hashAlgorithm == "hmac-sha1":
-              password += hashclass.any_hmac_sha1(key, dat, charset, trim)
-          elif hashAlgorithm == "md4":
-              password += hashclass.any_md4(dat, charset, trim)
-          elif hashAlgorithm == "hmac-md4":
-              password += hashclass.any_hmac_md4(key, dat, charset, trim)
-          elif hashAlgorithm == "md5":
-              password += hashclass.any_md5(dat, charset, trim)
-          elif hashAlgorithm == "hmac-md5":
-              password += hashclass.any_hmac_md5(key, dat, charset, trim)
-          elif hashAlgorithm == "rmd160":
-              password += hashclass.any_rmd160(dat, charset, trim)
-          elif hashAlgorithm == "hmac-rmd160":
-              password += hashclass.any_hmac_rmd160(key, dat, charset, trim)
-          else:
-              raise PWM_Error("Unknown or misspelled algorithm: %s. Valid algorithms: %s" % (hashAlgorithm, ", ".join(self.valid_algs)))
-          count += 1
+        Set trim to false for keeping leading zeros.
+        The generated string only contains characters from self.charset.
 
-      if prefix:
-          password = prefix + password
-      if suffix:
-          password = password[:passwordLength-len(suffix)] + suffix
-      return password[:passwordLength]
+        """
 
-
-
-
-class PWM_HashUtils:
-    def rstr2any(self, input, encoding, trim=True):
-        """Convert a raw string to an arbitrary string encoding. Set trim
-to false for keeping leading zeros"""
+        encoding = self.encoding
         divisor = len(encoding)
+
+        def get_quotient_remainder(dividend):
+            """Returns tuple (quotient, remainder) from dividend"""
+
+            quotient = []
+            remainder = 0
+            for dividend_ele in dividend:
+                remainder = (remainder << 16) + dividend_ele
+                quot = remainder // divisor
+                remainder -= quot * divisor
+                if quotient or quot:
+                    quotient.append(quot)
+
+            return quotient, remainder
+
         remainders = []
 
         # Convert to an array of 16-bit big-endian values, forming the dividend
         dividend = []
         # pad this
-        while len(dividend) < math.ceil(len(input) / 2):
+        while len(dividend) < ceil(len(inp) / 2):
             dividend.append(0)
-        inp = input # Because Miquel is a lazy twit and didn't want to do a search and replace
-        for i in range(len(dividend)):
-            dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
 
-        # Repeatedly perform a long division. The binary array forms the dividend,
-        # the length of the encoding is the divisor. Once computed, the quotient
-        # forms the dividend for the next step. We stop when the dividend is zero.
-        # All remainders are stored for later use.
+        for i, _ in enumerate(dividend):
+            try:
+                dividend[i] = (inp[i * 2] << 8) | inp[i * 2 + 1]
+            except TypeError:  # Python 2.x
+                dividend[i] = (ord(inp[i * 2]) << 8) | ord(inp[i * 2 + 1])
+
+        # Repeatedly perform a long division. The binary array forms the
+        # dividend, the length of the encoding is the divisor. Once computed,
+        # the quotient forms the dividend for the next step. We stop when the
+        # dividend is zero. All remainders are stored for later use.
+
         if trim:
-            while len(dividend) > 0:
-                quotient = []
-                x = 0
-                for i in range(len(dividend)):
-                    x = (x << 16) + dividend[i]
-                    q = x // divisor
-                    x -= q * divisor
-                    if len(quotient) > 0 or q > 0:
-                        quotient.append(q)
-                remainders.append(x)
-                dividend = quotient
+            while dividend:
+                dividend, remainder = get_quotient_remainder(dividend)
+                remainders.append(remainder)
+
         else:
-            full_length = math.ceil(float(len(input) * 8) / (math.log(len(encoding)) / math.log(2)))
+            full_length = ceil(float(len(inp) * 8) /
+                               (log(len(encoding)) / log(2)))
             for j in range(len(full_length)):
-             quotient = []
-             x = 0
-             for i in range(len(dividend)):
-                 x = (x << 16) + dividend[i]
-                 q = x // divisor
-                 x -= q * divisor
-                 if len(quotient) > 0 or q > 0:
-                     quotient[len(quotient)] = q
-             remainders[j] = x
-             dividend = quotient
+                dividend, remainder = get_quotient_remainder(dividend)
+                remainders[j] = remainder
 
         # Convert the remainders to the output string
         output = ""
@@ -195,118 +210,424 @@ to false for keeping leading zeros"""
 
         return output
 
-    def any_md5(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
-            hash = hashlib.md5(s).digest()
-        else:
-            import md5
-            hash = md5.new(s).digest()
-        return self.rstr2any(hash, e, t)
+    def any_md5(self, inp, trim=True):
+        """MD5 function wrapper"""
 
-    def any_hmac_md5(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+        if HAS_HASHLIB:
+            __hash = hashlib.md5(inp).digest()
+        else:
+            __hash = md5.new(inp).digest()
+        return self.rstr2any(__hash, trim)
+
+    def any_hmac_md5(self, key, inp, trim=True):
+        """MD5 HMAC function wrapper"""
+
+        if HAS_HASHLIB:
             hashfunc = hashlib.md5
         else:
-            import md5
             hashfunc = md5
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_sha1(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
-            hash = hashlib.sha1(s).digest()
+    def any_sha1(self, inp, trim=True):
+        """SHA1 function wrapper"""
+
+        if HAS_HASHLIB:
+            __hash = hashlib.sha1(inp).digest()
         else:
-            import sha
-            hash = sha.new(s).digest()
-        return self.rstr2any(hash, e, t)
+            __hash = sha.new(inp).digest()
+        return self.rstr2any(__hash, trim)
 
-    def any_hmac_sha1(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+    def any_hmac_sha1(self, key, inp, trim=True):
+        """SHA1 HMAC function wrapper"""
+
+        if HAS_HASHLIB:
             hashfunc = hashlib.sha1
         else:
-            import sha
             hashfunc = sha
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_sha256(self, s, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
-            hash = hashlib.sha256(s).digest()
+    def any_sha256(self, inp, trim=True):
+        """SHA256 function wrapper"""
+
+        if HAS_HASHLIB:
+            __hash = hashlib.sha256(inp).digest()
         else:
-            from Crypto.Hash import SHA256
-            hash = SHA256.new(s).digest()
-        return self.rstr2any(hash, e, t)
+            __hash = SHA256.new(inp).digest()
+        return self.rstr2any(__hash, trim)
 
-    def any_hmac_sha256(self, k, d, e, t):
-        if float(sys.version[:3]) >= 2.5:
-            import hashlib
+    def any_hmac_sha256(self, key, inp, trim=True):
+        """SHA256 HMAC function wrapper"""
+
+        if HAS_HASHLIB:
             hashfunc = hashlib.sha256
         else:
-            import Crypto.Hash.SHA256
-            hashfunc = Crypto.Hash.SHA256
-        return self.rstr2any(hmac.new(k, d, hashfunc).digest(), e, t)
+            hashfunc = SHA256
+        return self.rstr2any(hmac.new(key, inp, hashfunc).digest(), trim)
 
-    def any_md4(self, s, e, t):
-        from Crypto.Hash import MD4
-        return self.rstr2any(MD4.new(s).digest(), e, t)
+    def any_md4(self, inp, trim=True):
+        """MD4 function wrapper"""
 
-    def any_hmac_md4(self, k, d, e, t):
-        import Crypto.Hash.MD4
-        return self.rstr2any(hmac.new(k, d, Crypto.Hash.MD4).digest(), e, t)
+        return self.rstr2any(MD4.new(inp).digest(), trim)
 
-    def any_rmd160(self, s, e, t):
-        from Crypto.Hash import RIPEMD
-        return self.rstr2any(RIPEMD.new(s).digest(), e, t)
+    def any_hmac_md4(self, key, inp, trim=True):
+        """MD4 HMAC function wrapper"""
 
-    def any_hmac_rmd160(self, k, d, e, t):
-        import Crypto.Hash.RIPEMD
-        return self.rstr2any(hmac.new(k, d, Crypto.Hash.RIPEMD).digest(), e, t)
+        return self.rstr2any(hmac.new(key, inp, MD4).digest(), trim)
 
-class PWM_Settings:
-    def __init__(self):
-        self.URL = ""
-        self.MasterPass = "" # don't really want to save this
-        self.Algorithm = "md5"
-        self.Username = ""
-        self.Modifier = ""
-        self.Length = 8
-        self.CharacterSet = PWM().FULL_CHARSET
-        self.Prefix = ""
-        self.Suffix = ""
-        self.UseLeet = False
-        self.LeetLvl = 1
+    def any_rmd160(self, inp, trim=True):
+        """RMD160 function wrapper"""
 
-    def __str__(self):
-        return "URL=%s\nPWD=%s\nAlg=%s\nUsr=%s\nMod=%s\nLen=%s\nChr=%s\nPfx=%s\nSfx=%s\nL3t=%s\nLvl=%s\n" % (
-            self.URL,
-            self.MasterPass,
-            self.Algorithm,
-            self.Username,
-            self.Modifier,
-            self.Length,
-            self.CharacterSet,
-            self.Prefix,
-            self.Suffix,
-            self.UseLeet,
-            self.LeetLvl,
-            )
+        return self.rstr2any(RIPEMD.new(inp).digest(), trim)
+
+    def any_hmac_rmd160(self, key, inp, trim=True):
+        """RMD160 HMAC function wrapper"""
+
+        return self.rstr2any(hmac.new(key, inp, RIPEMD).digest(), trim)
 
 
-    def load(self):
-        import os
-        if os.path.exists('pwm.settings'):
-            import pickle
-            f = open('pwm.settings','rb')
-            settings = pickle.load(f)
-            f.close()
-            return settings
-        return PWM_Settings()
+@attr.s
+class PwmSettings(object):
+    """Setting class holding all parameters for hash generation"""
 
-    def save(self):
-        import pickle
-        f = open('pwm.settings','wb')
-        pickle.dump(self,f)
-        f.close()
+    int_val = attr.validators.instance_of(int)
+    str_val = attr.validators.instance_of(str)
+    algorithm_val = attr.validators.in_(ALGORITHMS)
+    leet_val = attr.validators.in_(LEET_OPTIONS)
+
+    _url_metadata = {'cmd1': "-r", 'cmd2': "--url", "guitext": "URL",
+                     "help": "URL (default blank)"}
+    URL = attr.ib(default="", validator=str_val, type="str",
+                  metadata=_url_metadata)
+
+    _mpw_metadata = {'cmd1': "-m", 'cmd2': "--mpw", "guitext": "Master PW",
+                     "help": "Master password (default: ask)"}
+    MasterPass = attr.ib(default="", validator=str_val, type="pwd",
+                         metadata=_mpw_metadata)
+
+    _alg_metadata = {'cmd1': "-a", 'cmd2': "--alg", "guitext": "Algorithm",
+                     "help": "Hash algorithm [hmac-] md4/md5/sha1/sha256/"
+                             "rmd160 (default md5)"}
+    Algorithm = attr.ib(default="md5", validator=algorithm_val, type="alg",
+                        metadata=_alg_metadata)
+
+    _usr_metadata = {'cmd1': "-u", 'cmd2': "--user", "guitext": "Username",
+                     "help": "Username (default blank)"}
+    Username = attr.ib(default="", validator=str_val, type="str",
+                       metadata=_usr_metadata)
+
+    _mod_metadata = {'cmd1': "-d", 'cmd2': "--modifier", "guitext": "Modifier",
+                     "help": "Password modifier (default blank)"}
+    Modifier = attr.ib(default="", validator=str_val, type="str",
+                       metadata=_mod_metadata)
+
+    _len_metadata = {'cmd1': "-g", 'cmd2': "--length", "guitext": "Length",
+                     "help": "Password length (default 8)"}
+    Length = attr.ib(default=8, validator=int_val, type="int",
+                     metadata=_len_metadata)
+
+    _chr_metadata = {'cmd1': "-c", 'cmd2': "--charset",
+                     "guitext": "Characters",
+                     "help": "Characters to use in password (default "
+                             "[A-Za-z0-9`~!@#$%^&*()_-+={}|[]\\:\";\'<>?,./])"}
+    CharacterSet = attr.ib(default=str(FULL_CHARSET), validator=str_val,
+                           type="str", metadata=_chr_metadata)
+
+    _pfx_metadata = {'cmd1': "-p", 'cmd2': "--prefix", "guitext": "Prefix",
+                     "help": "Password prefix (default blank)"}
+    Prefix = attr.ib(default="", validator=str_val, type="str",
+                     metadata=_pfx_metadata)
+
+    _sfx_metadata = {'cmd1': "-s", 'cmd2': "--suffix", "guitext": "Suffix",
+                     "help": "Password suffix (default blank)"}
+    Suffix = attr.ib(default="", validator=str_val, type="str",
+                     metadata=_sfx_metadata)
+
+    _useleet_metadata = {'cmd1': "-l", 'cmd2': "--leet", "guitext": "Use leet",
+                         "help": "Use leet speech. <none|before|after|both>"
+                                 "(default: none)"}
+    UseLeet = attr.ib(default="none", validator=leet_val, type="l3t",
+                      metadata=_useleet_metadata)
+
+    _leetlvl_metadata = {'cmd1': "-L", 'cmd2': "--leetlevel",
+                         "guitext": "Leet level",
+                         "help": "l33t level [1-9] (default 1)"}
+    LeetLvl = attr.ib(default=1, validator=int_val, type="int",
+                      metadata=_leetlvl_metadata)
+
+    def __getitem__(self, __attr):
+        return self.__getattribute__(__attr)
+
+    @staticmethod
+    def _get_attr_filters():
+        """Returns attr filters that excludes MasterPass"""
+
+        return attr.filters.exclude(attr.fields(PwmSettings).MasterPass)
+
+    def load(self, filepath='pwm.settings'):
+        """Loads setting from a json file"""
+
+        with open(filepath) as infile:
+            file_dict = json.load(infile)
+
+        passwd_filter = self._get_attr_filters()
+        attr_fields = attr.asdict(self, filter=passwd_filter)
+
+        try:
+            for attr_key in attr_fields:
+                if attr_key in file_dict:
+                    self.__setattr__(attr_key, file_dict[attr_key])
+                    try:
+                        attr.validate(self)
+                    except TypeError:
+                        # Python 2 fix
+                        value = file_dict[attr_key].encode("utf-8")
+                        self.__setattr__(attr_key, value)
+                        attr.validate(self)
+
+        except TypeError as err:
+            # If attrs are of the wrong type then roll back
+            for attr_key in attr_fields:
+                self.__setattr__(attr_key, attr_fields[attr_key])
+            raise TypeError(err)
+
+    def save(self, filepath='pwm.settings'):
+        """Saves setting to a json file"""
+
+        passwd_filter = self._get_attr_filters()
+        attr_dict = attr.asdict(self, filter=passwd_filter)
+
+        with open(filepath, 'w') as outfile:
+            json.dump(attr_dict, outfile, sort_keys=True, indent=4)
+
+
+@attr.s
+class PwmSettingsList(object):
+    """Stores a list of PwmSettings"""
+
+    current = attr.ib(default="default")
+    pwm_names = attr.ib(default=["default"])
+    pwms = attr.ib(default=[PwmSettings()])
+
+    def get_pwm_settings(self):
+        """Returns current PwmSettings"""
+
+        pwm_idx = self.pwm_names.index(self.current)
+        return self.pwms[pwm_idx]
+
+    def load(self, directory="."):
+        """Loads all PWM_setting files from current directory"""
+
+        filenames = [f for f in os.listdir(directory)
+                     if f.endswith(".setting")]
+        filenames.sort()
+        pwm_names = [f[4:-8] for f in filenames]
+
+        self.pwm_names = []
+        self.pwms = []
+        for pwm_name, filename in zip(pwm_names, filenames):
+            pwm = PwmSettings()
+            pwm.load(filename)
+
+            if pwm_name == "default":
+                self.pwm_names.insert(0, pwm_name)
+                self.pwms.insert(0, pwm)
+            else:
+                self.pwm_names.append(pwm_name)
+                self.pwms.append(pwm)
+
+        if not pwm_names:
+            self.pwm_names.append("default")
+            self.pwms.append(PwmSettings())
+
+        if "default" in pwm_names:
+            self.current = "default"
+        else:
+            self.current = self.pwm_names[0]
+
+    def save(self, directory="."):
+        """Saves all PWM_setting files from current directory"""
+
+        for name, pwm in zip(self.pwm_names, self.pwms):
+            pwm.save(filepath="pwm."+name+".setting")
+
+        filenames = [f for f in os.listdir(directory)
+                     if f.endswith(".setting")]
+        pwm_names = [f[4:-8] for f in filenames]
+
+        for pwm_name in pwm_names:
+            if pwm_name not in self.pwm_names:
+                os.remove("pwm."+pwm_name+".setting")
+
+
+# Main PasswordMaker functions
+
+
+def get_leet_mapping(leet_level):
+    """Returns a leet mappings for given leet level
+
+    For levels not in [1, 9], an empty dict is returned.
+
+    Parameters
+    ----------
+    * leet_level: Integer in [1, 9]
+    \tLeet level.
+
+    """
+
+    # In leet_additional_mappings_per_level low level conversions are
+    # maintained at higher levels unless they are overridden.
+    # Conversions in the dicts always refer to the original character,
+    # i. e. not to converted ones.
+
+    leet_additional_mappings_per_level = [
+        {},
+        {"a": "4", "e": "3", "l": "1", "o": "0", "q": "9", "t": "7"},
+        {"i": "l", "s": "5", "z": "2"},
+        {"b": "8", "g": "6", "i": "'", "y": "'/"},
+        {"a": "@"},
+        {"b": "|3", "h": "#", "i": "!", "j": "7", "k": "|<", "p": "|>",
+         "r": "|2", "s": "$", "v": "\\/"},
+        {"d": "|)", "e": "&", "f": "|=", "j": ",|"},
+        {"c": "[", "m": "^^", "n": "^/", "p": "|*", "s": "5", "u": "(_)",
+         "w": "\\/\\/", "x": "><"},
+        {"b": "8", "c": "(", "h": "|-|", "j": "_|", "k": "|(", "m": "|\\/|",
+         "n": "|\\|", "o": "()", "p": "|>", "q": "(,)", "r": "|2", "s": "$",
+         "t": "|", "u": "|_|", "w": "\\^/", "x": ")(", "z": "\"/_"},
+        {"k": "|{", "l": "|_", "m": "/\\/\\"},
+    ]
+
+    leet_mapping = {}
+    for j in range(leet_level + 1):
+        leet_mapping.update(leet_additional_mappings_per_level[j])
+
+    return leet_mapping
+
+
+def leet(leet_level, message):
+    """Converts the string in message to l33t-speak
+
+    The l33t level is specified by leet_level.
+    l33t levels are 1-9 with 1 being the simplest form of l33t-speak and
+    9 being the most complex.
+
+    Note that _message_ is converted to lower-case if the l33t conversion is
+    performed. Using a _leetLevel_ <= 0 results in the original message
+    being returned.
+
+    """
+
+    leet_mapping = get_leet_mapping(leet_level)
+
+    leet_message = ""
+    for char in message.lower():
+        try:
+            leet_message += leet_mapping[char]
+        except KeyError:
+            leet_message += char
+
+    return leet_message
+
+
+def generatepasswordfrom(settings):
+    """Calls self.generatepassword with parameters from settings
+
+    Parameters
+    ----------
+
+    * settings: PwmSettingsList
+    \tSettings instance
+
+    """
+
+    concat_url = settings.URL + settings.Username + settings.Modifier
+    return generatepassword(hash_algorithm=settings.Algorithm,
+                            key=settings.MasterPass,
+                            data=concat_url,
+                            password_length=settings.Length,
+                            charset=settings.CharacterSet,
+                            prefix=settings.Prefix,
+                            suffix=settings.Suffix,
+                            use_leet=settings.UseLeet,
+                            leet_level=settings.LeetLvl)
+
+
+def generatepassword(hash_algorithm, key, data, password_length, charset,
+                     prefix="", suffix="", use_leet="none", leet_level=0):
+    """Generates PasswordMaker password
+
+    Note: L33t ist not supported, yet.
+
+    Parameters
+    ----------
+
+    * hash_algorithm: String
+    \tHash algorithm from ALGORITHMS
+    * key: String
+    \tPassword key, normally maps from master password(!)
+    * data: String
+    \tBase data string, normally concatenates url, username and modifier
+    * password_length: Integer
+    \tLength of the generated password, must be in range(2, 129)
+    * charset: String
+    \tCharacters that may appear in the generated password
+    * prefix: String (default: "")
+    \tPassword prefix
+    * suffix: String (default: "")
+    \tPassword suffix
+    * use_leet: String (default: "none")
+    \tUse leet speech. May be from ["none", "before", "after", "both"]
+    * leet_level: Integer (default: 0)
+    \tl33t level may be from [1-9]. Other values disable leet
+
+    """
+
+    # If the charset's length < 2 the hash algorithms will run indefinitely.
+
+    if len(charset) < 2:
+        msg = "The charset {} contains less than 2 characters."
+        raise ValueError(msg.format(charset))
+
+    # apply the algorithm
+    hash_func_wrapper = PwmHashUtils(hash_algorithm, charset).hash_func_wrapper
+    hash_uses_hmac = hash_algorithm.count("hmac") > 0
+
+    # Apply l33t before the algorithm?
+    if use_leet in ("before", "both"):
+        key = leet(leet_level, key)
+        data = leet(leet_level, data)
+
+    # Ensure encoding to avoid Python3 issues
+    key = key.encode("utf-8")
+    data = data.encode("utf-8")
+
+    tkey = key  # Copy of the master password so we don't interfere with it
+    dat = data
+
+    password = ''
+
+    for i in range(1000):
+        if i:
+            key = tkey + b"\n" + str(i).encode("utf-8")
+
+        # For non-hmac algorithms, the key is master pw and url
+        # concatenated
+
+        if hash_uses_hmac:
+            password += hash_func_wrapper(key, dat)
+        else:
+            dat = key + data
+            password += hash_func_wrapper(dat)
+
+        if len(password) >= password_length:
+            break
+
+    # Apply l33t after the algorithm?
+    if use_leet in ("after", "both"):
+        password = leet(leet_level, password)
+
+    if prefix:
+        password = prefix + password
+    if suffix:
+        password = password[:password_length-len(suffix)] + suffix
+
+    return password[:password_length]
