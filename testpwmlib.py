@@ -264,5 +264,6 @@ class TestLeet(unittest.TestCase):
             ' ||-|& |_@"/_\'/ |)()6'
         self.assertEqual(res, r)
 
+
 if __name__ == '__main__':
     unittest.main()
