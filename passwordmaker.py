@@ -354,7 +354,7 @@ class Application(tk.Frame):
         current_passwd = self.passwd_text.get()
         if current_passwd:
             self.passwd_text.delete(0, len(current_passwd))
-        self.passwd_text.insert(0, pwd)
+        self.passwd_text.insert(0, pwd[:2]+"*"*(len(pwd)-2))
         self.clipboard_clear()
         self.clipboard_append(pwd)
 
